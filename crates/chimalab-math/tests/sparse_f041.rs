@@ -649,6 +649,13 @@ fn recorrencias_casos_limite() {
     let tiny = diag(&[1e-300]);
     let r = pcg(&tiny, &[1e300], &IterOptions::default()).unwrap();
     assert_eq!(r.flag, IterFlag::NonFinite);
+    // O x devolvido é o melhor iterado finito (aqui, x₀ = 0), não o que estourou.
+    assert!(
+        r.x.iter().all(|v| v.is_finite()) && r.relres <= 1.0,
+        "{:?} {}",
+        r.x,
+        r.relres
+    );
     assert_eq!(
         spsolve(&tiny, &[1e300]).unwrap_err().id(),
         "chimalab:sparse:singular"
@@ -1007,4 +1014,525 @@ fn ordenacoes_amd_e_colamd() {
         Vec::<usize>::new()
     );
     assert_eq!(amd(&r).unwrap_err().id(), "chimalab:sparse:naoQuadrada");
+}
+
+/// LSQR: opções inválidas, partida x₀, contagem de iterações, quebra exata (β = 0 e α = 0),
+/// limite padrão de iterações e `relres` com b = 0 (mutação).
+#[test]
+fn lsqr_bordas_e_caminho() {
+    use chimalab_math::sparse::lsqr;
+    let sq = poisson2d(10);
+    let xs = exata(100);
+    let bs = sq.mul_vec(&xs).unwrap();
+    let o = |tol: f64| IterOptions {
+        tol,
+        ..Default::default()
+    };
+    // Opções inválidas: tol 0, ±∞ e NaN; λ negativo, ∞ e NaN.
+    for (tol, lam) in [
+        (0.0, 0.0),
+        (f64::INFINITY, 0.0),
+        (f64::NAN, 0.0),
+        (1e-8, f64::INFINITY),
+        (1e-8, f64::NAN),
+        (1e-8, -1e-300),
+    ] {
+        assert_eq!(
+            lsqr(&sq, &bs, lam, &o(tol)).unwrap_err().id(),
+            "chimalab:sparse:opcaoInvalida",
+            "tol {tol}, λ {lam}"
+        );
+    }
+    // Partida na solução exata: r₀ = 0, nenhuma iteração.
+    let r = lsqr(
+        &sq,
+        &bs,
+        0.0,
+        &IterOptions {
+            x0: Some(xs.clone()),
+            ..o(1e-12)
+        },
+    )
+    .unwrap();
+    assert_eq!((r.flag, r.iterations), (IterFlag::Converged, 0));
+    assert_eq!(r.x, xs);
+    // Partida perturbada: converge para a mesma solução.
+    let x0: Vec<f64> = xs
+        .iter()
+        .enumerate()
+        .map(|(i, v)| v + 0.01 * (i % 7) as f64)
+        .collect();
+    let r = lsqr(
+        &sq,
+        &bs,
+        0.0,
+        &IterOptions {
+            x0: Some(x0),
+            ..o(1e-12)
+        },
+    )
+    .unwrap();
+    assert_eq!(r.flag, IterFlag::Converged);
+    assert!(erro_rel(&r.x, &xs) <= 1e-8, "{}", erro_rel(&r.x, &xs));
+    // Exatamente max_iter iterações.
+    let r = lsqr(
+        &sq,
+        &bs,
+        0.0,
+        &IterOptions {
+            max_iter: Some(3),
+            ..o(1e-14)
+        },
+    )
+    .unwrap();
+    assert_eq!((r.flag, r.iterations), (IterFlag::MaxIterations, 3));
+    // Identidade: A·v = α·u exatamente no primeiro passo (β = 0) e depois α = 0. Sem a guarda,
+    // 0/0 contaminaria tudo.
+    let id = SparseMatrix::identity(5);
+    let b5 = [1.0, -2.0, 0.5, 3.0, 0.25];
+    let r = lsqr(&id, &b5, 0.0, &o(1e-12)).unwrap();
+    assert_eq!((r.flag, r.iterations), (IterFlag::Converged, 1));
+    assert!(
+        r.x.iter()
+            .zip(&b5)
+            .all(|(p, q)| (p - q).abs() <= 4.0 * f64::EPSILON * q.abs()),
+        "{:?}",
+        r.x
+    );
+    // Limite padrão: 2·max(m, n, 50) iterações com tolerância inalcançável.
+    let mut t = Vec::new();
+    for i in 0..60usize {
+        for j in 0..25usize {
+            if (i * 7 + j * 3) % 5 == 0 || i == j {
+                t.push((i, j, 1.0 + ((i * 13 + j * 29) % 17) as f64 / 17.0));
+            }
+        }
+    }
+    let ret = SparseMatrix::from_triplets(60, 25, &t).unwrap();
+    let br: Vec<f64> = (0..60).map(|i| ((i * 37) % 11) as f64 - 5.0).collect();
+    let r = lsqr(&ret, &br, 0.0, &o(1e-300)).unwrap();
+    assert_eq!((r.flag, r.iterations), (IterFlag::MaxIterations, 120));
+    // Parada pelo critério de mínimos quadrados (‖Aᵀr‖ relativo), com o mesmo problema.
+    let r = lsqr(&ret, &br, 0.0, &o(1e-10)).unwrap();
+    assert_eq!((r.flag, r.iterations), (IterFlag::Converged, 40));
+    let rl = lsqr(&ret, &br, 0.7, &o(1e-10)).unwrap();
+    assert_eq!((rl.flag, rl.iterations), (IterFlag::Converged, 26));
+    // relres = ‖b − A·x‖/‖b‖ conferido de forma independente.
+    let ax = ret.mul_vec(&r.x).unwrap();
+    let nr = br
+        .iter()
+        .zip(&ax)
+        .map(|(p, q)| (p - q) * (p - q))
+        .sum::<f64>()
+        .sqrt();
+    let nb = br.iter().map(|v| v * v).sum::<f64>().sqrt();
+    assert!(
+        (r.relres - nr / nb).abs() <= 1e-12 * (nr / nb),
+        "{} {}",
+        r.relres,
+        nr / nb
+    );
+    // Regressão: b = 0 com x₀ ≠ 0 nunca convergia (critério ‖r‖ ≤ tol·‖b‖ = 0). Agora devolve
+    // x = 0 (mínima norma) sem iterar, como os outros métodos.
+    let r = lsqr(
+        &sq,
+        &vec![0.0; 100],
+        0.0,
+        &IterOptions {
+            x0: Some(vec![1.0; 100]),
+            ..o(1e-12)
+        },
+    )
+    .unwrap();
+    assert_eq!((r.flag, r.iterations, r.relres), (IterFlag::Converged, 0, 0.0));
+    assert!(r.x.iter().all(|&v| v == 0.0));
+}
+
+/// Métodos de Krylov: invariância de escala (mutação). Multiplicar b por 2²⁰ é exato em ponto
+/// flutuante, e o critério ‖r‖ ≤ tol·‖b‖ é relativo: as iterações têm de ser as mesmas e x sai
+/// escalado bit a bit. Também: contagem exata com `max_iter` e o último resíduo do histórico.
+#[test]
+fn krylov_invariancia_de_escala_e_contagens() {
+    type Metodo =
+        fn(&SparseMatrix, &[f64], &IterOptions) -> Result<chimalab_math::sparse::IterResult, SparseError>;
+    // SPD com diagonal variável (o Jacobi não é múltiplo da identidade).
+    let mut t = poisson2d(8).triplets();
+    t.extend((0..64).map(|i| (i, i, 0.5 + (i % 5) as f64)));
+    let a = SparseMatrix::from_triplets(64, 64, &t).unwrap();
+    let b: Vec<f64> = (0..64).map(|i| ((i * 29) % 13) as f64 - 6.0).collect();
+    let esc = (1u64 << 20) as f64;
+    let b2: Vec<f64> = b.iter().map(|v| v * esc).collect();
+    let metodos: [(&str, Metodo); 4] = [
+        ("pcg", pcg),
+        ("gmres", gmres),
+        ("minres", minres),
+        ("bicgstab", bicgstab),
+    ];
+    for (nome, f) in metodos {
+        for pc in [Preconditioner::None, Preconditioner::Jacobi] {
+            let o = IterOptions {
+                tol: 1e-10,
+                precond: pc,
+                ..Default::default()
+            };
+            let r1 = f(&a, &b, &o).unwrap();
+            let r2 = f(&a, &b2, &o).unwrap();
+            assert_eq!(r1.flag, IterFlag::Converged, "{nome} {pc:?}");
+            assert!(r1.relres <= 1e-10, "{nome} {pc:?}: {}", r1.relres);
+            assert_eq!(r1.iterations, r2.iterations, "{nome} {pc:?}");
+            assert!(
+                r1.x.iter().zip(&r2.x).all(|(p, q)| p * esc == *q),
+                "{nome} {pc:?}"
+            );
+            // O último resíduo registrado é o da iterada final (estimativa coerente com o
+            // verdadeiro, a menos do arredondamento acumulado).
+            let ult = *r1.resvec.last().unwrap();
+            let nb = b.iter().map(|v| v * v).sum::<f64>().sqrt();
+            assert!(ult <= 1e-10 * nb * 10.0, "{nome} {pc:?}: {ult:e}");
+            // Exatamente max_iter iterações quando a tolerância é inalcançável no limite.
+            let o3 = IterOptions {
+                tol: 1e-15,
+                max_iter: Some(3),
+                precond: pc,
+                ..Default::default()
+            };
+            let r = f(&a, &b, &o3).unwrap();
+            assert_eq!(
+                (r.flag, r.iterations),
+                (IterFlag::MaxIterations, 3),
+                "{nome} {pc:?}"
+            );
+        }
+    }
+    // PCG: p·Ap estoura (não finito) com valores finitos: quebra declarada, não iteração cega.
+    let big = SparseMatrix::from_triplets(2, 2, &[(0, 0, 1e200), (1, 1, 2e200)]).unwrap();
+    let r = pcg(&big, &[1e150, 1e150], &IterOptions::default()).unwrap();
+    assert_eq!(r.flag, IterFlag::Breakdown);
+}
+
+/// Terminação finita (oráculo teórico, mutação): com A diagonal de k = 4 autovalores distintos, o
+/// espaço de Krylov tem dimensão 4 e CG, GMRES, MINRES e BiCGSTAB terminam em ≤ 4 iterações em
+/// aritmética exata (o polinômio mínimo de A anula r₀). Com Jacobi, M⁻¹A = I: 1 iteração. Uma
+/// fórmula de recorrência errada ainda converge, mas perde essa propriedade.
+#[test]
+fn krylov_terminacao_finita() {
+    type Metodo =
+        fn(&SparseMatrix, &[f64], &IterOptions) -> Result<chimalab_math::sparse::IterResult, SparseError>;
+    let auto = [1.0, 2.0, 5.0, 10.0];
+    let n = 40;
+    let a =
+        SparseMatrix::from_triplets(n, n, &(0..n).map(|i| (i, i, auto[i % 4])).collect::<Vec<_>>()).unwrap();
+    let b: Vec<f64> = (0..n).map(|i| 1.0 + ((i * 7) % 9) as f64 / 3.0).collect();
+    let metodos: [(&str, Metodo); 4] = [
+        ("pcg", pcg),
+        ("gmres", gmres),
+        ("minres", minres),
+        ("bicgstab", bicgstab),
+    ];
+    for (nome, f) in metodos {
+        let r = f(
+            &a,
+            &b,
+            &IterOptions {
+                tol: 1e-12,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(r.flag, IterFlag::Converged, "{nome}");
+        assert!(r.iterations <= 4, "{nome}: {} iterações", r.iterations);
+        assert!(r.relres <= 1e-12, "{nome}: {}", r.relres);
+        let r = f(
+            &a,
+            &b,
+            &IterOptions {
+                tol: 1e-12,
+                precond: Preconditioner::Jacobi,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!((r.flag, r.iterations), (IterFlag::Converged, 1), "{nome} Jacobi");
+        for i in 0..n {
+            assert!(
+                (r.x[i] - b[i] / auto[i % 4]).abs() <= 4.0 * f64::EPSILON * r.x[i].abs(),
+                "{nome} Jacobi x[{i}]"
+            );
+        }
+    }
+}
+
+fn laplaciano_1d(n: usize, esc: f64) -> SparseMatrix {
+    let mut t = Vec::new();
+    for i in 0..n {
+        t.push((i, i, 2.0 * esc));
+        if i + 1 < n {
+            t.push((i, i + 1, -esc));
+            t.push((i + 1, i, -esc));
+        }
+    }
+    SparseMatrix::from_triplets(n, n, &t).unwrap()
+}
+
+/// Autovalores de [−1, 2, −1] (n×n): 2 − 2cos(jπ/(n+1)), j = 1..n (forma fechada).
+fn auto_laplaciano(n: usize) -> Vec<f64> {
+    (1..=n)
+        .map(|j| 2.0 - 2.0 * (j as f64 * std::f64::consts::PI / (n + 1) as f64).cos())
+        .collect()
+}
+
+/// eigs: invariância de escala, espaço de Krylov esgotado, subespaço invariante, ordem do
+/// `NearestTo` e indicador de convergência (mutação).
+#[test]
+fn eigs_escala_esgotamento_e_ordem() {
+    use chimalab_math::sparse::svds;
+    // Escala por 2^±40 (exata): mesmos reinícios e operações, autovalores escalados.
+    // Regressão: no modo (A − σI)⁻¹ com ‖A‖ grande (2⁴⁰, ou já 1e9), o teste de subespaço
+    // invariante comparava β com ‖A‖ e devolvia valores errados sem reiniciar.
+    let base = laplaciano_1d(200, 1.0);
+    for which in [
+        Which::LargestAlgebraic,
+        Which::SmallestAlgebraic,
+        Which::LargestMagnitude,
+        Which::NearestTo(1.01),
+    ] {
+        let r1 = eigs(&base, 4, which, &EigsOptions::default()).unwrap();
+        assert!(r1.converged && r1.operations >= 20, "{which:?}");
+        for e in [-40i32, 40] {
+            let s = 2f64.powi(e);
+            let ws = match which {
+                Which::NearestTo(sig) => Which::NearestTo(sig * s),
+                w => w,
+            };
+            let rs = eigs(&laplaciano_1d(200, s), 4, ws, &EigsOptions::default()).unwrap();
+            assert!(rs.converged, "{which:?} 2^{e}");
+            assert_eq!(
+                (rs.restarts, rs.operations),
+                (r1.restarts, r1.operations),
+                "{which:?} 2^{e}"
+            );
+            for (p, q) in r1.values.iter().zip(&rs.values) {
+                assert!((p * s - q).abs() <= 1e-12 * q.abs(), "{which:?} 2^{e}: {p} {q}");
+            }
+        }
+    }
+    // n pequeno: k até n − 1, o espaço de Krylov se esgota; contra a forma fechada.
+    for n in 2..=7 {
+        let a = laplaciano_1d(n, 1.0);
+        let mut ex = auto_laplaciano(n);
+        ex.sort_by(|p, q| p.total_cmp(q));
+        for k in 1..n {
+            for which in [Which::LargestAlgebraic, Which::SmallestAlgebraic] {
+                let r = eigs(&a, k, which, &EigsOptions::default()).unwrap();
+                let esp: Vec<f64> = match which {
+                    Which::LargestAlgebraic => ex.iter().rev().take(k).copied().collect(),
+                    _ => ex.iter().take(k).copied().collect(),
+                };
+                assert!(r.converged, "n={n} k={k} {which:?}");
+                for (p, q) in r.values.iter().zip(&esp) {
+                    assert!(
+                        (p - q).abs() <= 1e-12,
+                        "n={n} k={k} {which:?}: {:?} vs {esp:?}",
+                        r.values
+                    );
+                }
+            }
+        }
+    }
+    // Autovalores repetidos (subespaço invariante cedo; as cópias vêm das verificações com
+    // vetores travados): diag com 5, 4, 3, 2, 1, cada um 10 vezes.
+    let d = SparseMatrix::from_triplets(
+        50,
+        50,
+        &(0..50).map(|i| (i, i, (5 - i / 10) as f64)).collect::<Vec<_>>(),
+    )
+    .unwrap();
+    let r = eigs(&d, 3, Which::LargestAlgebraic, &EigsOptions::default()).unwrap();
+    assert!(r.converged);
+    assert!(
+        r.values.iter().all(|v| (v - 5.0).abs() <= 1e-12),
+        "{:?}",
+        r.values
+    );
+    let r = eigs(&d, 12, Which::SmallestAlgebraic, &EigsOptions::default()).unwrap();
+    let esp: Vec<f64> = (0..12).map(|i| if i < 10 { 1.0 } else { 2.0 }).collect();
+    assert!(
+        r.values.iter().zip(&esp).all(|(p, q)| (p - q).abs() <= 1e-12),
+        "{:?}",
+        r.values
+    );
+    // NearestTo: ordem por distância a σ.
+    let dg = SparseMatrix::from_triplets(
+        50,
+        50,
+        &(0..50).map(|i| (i, i, (i + 1) as f64)).collect::<Vec<_>>(),
+    )
+    .unwrap();
+    let r = eigs(&dg, 4, Which::NearestTo(10.3), &EigsOptions::default()).unwrap();
+    for (p, q) in r.values.iter().zip([10.0, 11.0, 9.0, 12.0]) {
+        assert!((p - q).abs() <= 1e-10, "{:?}", r.values);
+    }
+    // Sem reinícios num problema difícil: não convergiu, e o indicador diz isso.
+    let r = eigs(
+        &laplaciano_1d(400, 1.0),
+        6,
+        Which::SmallestAlgebraic,
+        &EigsOptions {
+            max_restarts: 0,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(!r.converged && r.restarts == 0, "{} {}", r.converged, r.restarts);
+    let s = svds(
+        &laplaciano_1d(400, 1.0),
+        3,
+        &EigsOptions {
+            max_restarts: 0,
+            subspace: Some(8),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(!s.converged);
+}
+
+/// svds: k = min(m, n), matrizes 1×1, largas e altas (mutação), contra a forma fechada da
+/// matriz bidiagonal [1 1; 0 1 1; ...] via SVD densa.
+#[test]
+fn svds_k_maximo_e_formas() {
+    use chimalab_math::linalg::svd;
+    use chimalab_math::sparse::svds;
+    let r = svds(
+        &SparseMatrix::from_triplets(1, 1, &[(0, 0, -3.0)]).unwrap(),
+        1,
+        &EigsOptions::default(),
+    )
+    .unwrap();
+    assert!(
+        r.converged && (r.values[0] - 3.0).abs() <= 1e-14,
+        "{:?}",
+        r.values
+    );
+    for (m, n) in [(2, 3), (3, 2), (4, 4), (5, 3), (3, 6)] {
+        let mut t = Vec::new();
+        for i in 0..m {
+            for j in 0..n {
+                if j == i || j == i + 1 {
+                    t.push((i, j, 1.0 + (i + 2 * j) as f64 / 7.0));
+                }
+            }
+        }
+        let a = SparseMatrix::from_triplets(m, n, &t).unwrap();
+        let k = m.min(n);
+        let r = svds(&a, k, &EigsOptions::default()).unwrap();
+        let ex = svd(&a.to_dense(), true).unwrap();
+        assert!(r.converged, "{m}×{n}");
+        assert_eq!(r.values.len(), k, "{m}×{n}");
+        for i in 0..k {
+            assert!(
+                (r.values[i] - ex.s[i]).abs() <= 1e-12 * ex.s[0],
+                "{m}×{n}: {:?} {:?}",
+                r.values,
+                ex.s
+            );
+        }
+        assert_eq!(
+            svds(&a, k + 1, &EigsOptions::default()).unwrap_err().id(),
+            "chimalab:sparse:opcaoInvalida"
+        );
+    }
+}
+
+fn conveccao(n: usize, pe: f64) -> SparseMatrix {
+    let mut t = Vec::new();
+    for i in 0..n {
+        t.push((i, i, 2.0));
+        if i + 1 < n {
+            t.push((i, i + 1, -1.0 + pe / 2.0));
+            t.push((i + 1, i, -1.0 - pe / 2.0));
+        }
+    }
+    SparseMatrix::from_triplets(n, n, &t).unwrap()
+}
+
+/// BiCGSTAB e PCG: caminho, convergência só com resíduo verdadeiro e melhor iterado
+/// (mutação e regressão). Só +, ×, ÷ e √: contagens iguais em todas as plataformas.
+#[test]
+fn bicgstab_caminho_e_melhor_iterado() {
+    let b = |n: usize| -> Vec<f64> { (0..n).map(|i| 1.0 + (i % 3) as f64).collect() };
+    let a = conveccao(50, 0.5);
+    let o = |tol: f64| IterOptions {
+        tol,
+        ..Default::default()
+    };
+    // Contagens fixadas (convecção–difusão 1-D, Péclet de malha 0,5).
+    for (tol, it) in [(1e-8, 49), (1e-12, 62)] {
+        let r = bicgstab(&a, &b(50), &o(tol)).unwrap();
+        assert_eq!((r.flag, r.iterations), (IterFlag::Converged, it), "tol {tol}");
+        assert!(r.relres <= tol);
+    }
+    // Perto do limite de precisão, o resíduo da recorrência descola do verdadeiro: convergência
+    // só se o verdadeiro bastar.
+    for (n, pe) in [(50, 0.5), (60, 0.1)] {
+        for tol in [1e-14, 1e-15, 1e-16] {
+            let r = bicgstab(&conveccao(n, pe), &b(n), &o(tol)).unwrap();
+            assert!(
+                r.flag != IterFlag::Converged || r.relres <= tol,
+                "{n} {pe} {tol}: {:?} {}",
+                r.flag,
+                r.relres
+            );
+        }
+    }
+    // Regressão: divergência (Péclet 2, matriz bidiagonal muito não normal). Antes devolvia o
+    // último iterado, com relres ~1e23; agora o melhor (aqui x₀, relres 1).
+    let r = bicgstab(&conveccao(100, 2.0), &b(100), &o(1e-8)).unwrap();
+    assert_eq!(r.flag, IterFlag::MaxIterations);
+    assert!(r.relres <= 1.0, "{}", r.relres);
+    // ILU(0) com pivô infinito (valores finitos): o precondicionador recusa.
+    let m = SparseMatrix::from_triplets(2, 2, &[(0, 0, 1e-300), (0, 1, 1e10), (1, 0, 1e10), (1, 1, 1.0)])
+        .unwrap();
+    let e = gmres(
+        &m,
+        &[1.0, 1.0],
+        &IterOptions {
+            precond: Preconditioner::Ilu0,
+            ..Default::default()
+        },
+    );
+    assert_eq!(e.unwrap_err().id(), "chimalab:sparse:singular");
+    // GMRES: o histórico é o resíduo de cada iteração, estritamente decrescente aqui.
+    let r = gmres(&conveccao(50, 0.5), &b(50), &o(1e-10)).unwrap();
+    assert_eq!(r.resvec.len(), r.iterations + 1);
+    assert!(r.resvec.windows(2).all(|w| w[1] < w[0]), "{:?}", &r.resvec[..5]);
+}
+
+/// Krylov–Schur: custo fixado (reinícios e aplicações do operador) no laplaciano 1-D com
+/// n = 200, e o limite de reinícios respeitado (mutação: tamanho do subespaço, do reinício
+/// espesso e contadores). A soma de `restarts` inclui as buscas de verificação com vetores
+/// travados, cada uma com o próprio limite.
+#[test]
+fn eigs_custo_e_limite_de_reinicios() {
+    let a = laplaciano_1d(200, 1.0);
+    for (which, k, custo) in [
+        (Which::LargestAlgebraic, 4, (62, 576)),
+        (Which::SmallestAlgebraic, 8, (79, 574)),
+        (Which::NearestTo(1.01), 4, (2, 58)),
+    ] {
+        let r = eigs(&a, k, which, &EigsOptions::default()).unwrap();
+        assert!(r.converged, "{which:?}");
+        assert_eq!((r.restarts, r.operations), custo, "{which:?} k={k}");
+    }
+    let r = eigs(
+        &a,
+        6,
+        Which::SmallestAlgebraic,
+        &EigsOptions {
+            max_restarts: 2,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!((r.restarts, r.converged), (4, false));
 }

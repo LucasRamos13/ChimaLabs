@@ -1046,8 +1046,9 @@ fn fminbnd_caminho_de_brent() {
     }
 }
 
-/// Caminho exato do Brent em `fzero` (mutação). Funções sem libm (polinômios, racionais e √,
-/// todas corretamente arredondadas em IEEE 754), geradas por um LCG fixo: a sequência de
+/// Caminho exato do Brent em `fzero` (mutação). Funções sem libm nem `powi` (polinômios por
+/// produtos explícitos, racionais e √, todas corretamente arredondadas em IEEE 754; `powi` varia
+/// entre plataformas e mudou o caminho no Windows), geradas por um LCG fixo: a sequência de
 /// procedimentos (interpolação ou bissecção), as avaliações e os bits da raiz de cada caso entram
 /// numa impressão digital FNV-1a. Com a interpolação quebrada a bissecção ainda converge, então só
 /// o caminho denuncia o defeito. A raiz também é conferida pelo intervalo final.
@@ -1073,9 +1074,18 @@ fn fzero_caminho_de_brent() {
         let f: Box<dyn Fn(f64) -> f64> = match caso % 6 {
             0 => Box::new(move |x| (x - r) * (x * x + c1 * x + c1 * c1 + c2)),
             1 => Box::new(move |x| (x - r) / (1.0 + k * x * x)),
-            2 => Box::new(move |x| (x - r).powi(3) * (1.0 + c2 * x * x)),
-            3 => Box::new(move |x| (x - r).powi(5) + c2 * (x - r)),
-            4 => Box::new(move |x| (x + 5.0).sqrt() - (r + 5.0).sqrt() + c1 * (x - r).powi(3)),
+            2 => Box::new(move |x| {
+                let d = x - r;
+                d * d * d * (1.0 + c2 * x * x)
+            }),
+            3 => Box::new(move |x| {
+                let d = x - r;
+                d * d * d * d * d + c2 * d
+            }),
+            4 => Box::new(move |x| {
+                let d = x - r;
+                (x + 5.0).sqrt() - (r + 5.0).sqrt() + c1 * d * d * d
+            }),
             _ => Box::new(move |x| k * (x - r) + 1.0 / (x + 6.0) - 1.0 / (r + 6.0)),
         };
         let (a, b) = (r - 0.01 - 2.9 * u(), r + 0.01 + 2.9 * u());
@@ -1116,7 +1126,7 @@ fn fzero_caminho_de_brent() {
         total += res.fun_evals;
     }
     println!("brent: {total} avaliações, {interp} passos de interpolação, impressão {h:#018x}");
-    assert_eq!((total, interp, h), (103_492, 74_623, 0xa17f_bf01_e649_8f01));
+    assert_eq!((total, interp, h), (103_476, 74_612, 0x3c23_7e68_7b38_f568));
     // Zero exato pela secante: f(½) = 0 na primeira interpolação, e o intervalo informado é o
     // último com troca de sinal estrita.
     for (a, b, iv, n) in [

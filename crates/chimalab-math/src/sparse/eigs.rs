@@ -278,6 +278,10 @@ fn ks_run(
             if !apply(&vs[j], &mut w) {
                 return Err(SparseError::Singular);
             }
+            // Escala do operador neste passo (‖Op·v‖ antes da ortogonalização): o teste de
+            // subespaço invariante é relativo a ela. Regressão: comparar com ‖A‖ falhava no modo
+            // (A − σI)⁻¹, cuja escala é ~1/‖A‖ (com ‖A‖ ~ 1e9, todo β parecia nulo).
+            let nw = dot(&w, &w).sqrt();
             // Gram–Schmidt completo (base e travados), duas passadas.
             for _ in 0..2 {
                 for t in travados {
@@ -296,7 +300,7 @@ fn ks_run(
                 h[j + 1][j] = 0.0;
                 break;
             }
-            if beta <= 1e-14 * norm_a.max(f64::MIN_POSITIVE) {
+            if beta <= 1e-14 * nw {
                 // Subespaço invariante: continua com um vetor novo ortogonal a tudo (acoplamento 0).
                 let mut base = travados.to_vec();
                 base.extend(vs.iter().cloned());

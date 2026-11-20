@@ -884,7 +884,7 @@ fn ladrilhos_passo_minimo() {
         (0.128_107_776_016_960_72, 0.581_476_196_109_341_5, 359_100),
     ] {
         let r = integral2_tiled(
-            |x, y| 1.0 / ((x - a).powi(2) + (y - b).powi(2)).max(1e-40).sqrt(),
+            |x, y| 1.0 / ((x - a) * (x - a) + (y - b) * (y - b)).max(1e-40).sqrt(),
             0.0,
             1.0,
             |_| 0.0,

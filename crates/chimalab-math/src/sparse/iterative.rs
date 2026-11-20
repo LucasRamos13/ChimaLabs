@@ -171,6 +171,46 @@ fn finish(
     }
 }
 
+/// Melhor iterado para métodos de resíduo não monótono (PCG, BiCGSTAB): guarda o x de menor
+/// resíduo da recorrência e, sem convergência, devolve o de menor resíduo verdadeiro entre ele e
+/// o último. Regressão: o BiCGSTAB divergente devolvia o último iterado (relres ~1e23, pior que
+/// x₀), embora a documentação prometesse o melhor.
+struct Melhor {
+    nr: f64,
+    x: Vec<f64>,
+}
+
+impl Melhor {
+    fn observa(&mut self, nr: f64, x: &[f64]) {
+        if nr < self.nr {
+            self.nr = nr;
+            self.x.copy_from_slice(x);
+        }
+    }
+
+    /// (x, flag) final. Se o último iterado estourou, a flag é `NonFinite`, mas o x devolvido é
+    /// o melhor finito.
+    fn escolhe(self, a: &SparseMatrix, b: &[f64], x: Vec<f64>, flag: IterFlag) -> (Vec<f64>, IterFlag) {
+        if flag == IterFlag::Converged {
+            return (x, flag);
+        }
+        let flag = if x.iter().all(|v| v.is_finite()) {
+            flag
+        } else {
+            IterFlag::NonFinite
+        };
+        let mut r = vec![0.0; b.len()];
+        let ultimo = true_residual(a, b, &x, &mut r);
+        let melhor = true_residual(a, b, &self.x, &mut r);
+        // NaN no último (divergência) perde para qualquer valor finito.
+        if melhor < ultimo || (ultimo.is_nan() && !melhor.is_nan()) {
+            (self.x, flag)
+        } else {
+            (x, flag)
+        }
+    }
+}
+
 /// Gradiente conjugado precondicionado, para A simétrica definida positiva (M também SPD).
 ///
 /// Erros: `naoQuadrada`, `formaIncompativel`, `naoFinito`, `opcaoInvalida`, `singular` (o
@@ -198,6 +238,7 @@ pub fn pcg(a: &SparseMatrix, b: &[f64], opts: &IterOptions) -> Result<IterResult
     let mut p = z.clone();
     let mut rz = dot(&r, &z);
     let mut q = vec![0.0; n];
+    let mut melhor = Melhor { nr, x: x.clone() };
     let mut flag = IterFlag::MaxIterations;
     let mut it = 0;
     while it < max_iter {
@@ -215,6 +256,7 @@ pub fn pcg(a: &SparseMatrix, b: &[f64], opts: &IterOptions) -> Result<IterResult
         }
         nr = norm(&r);
         resvec.push(nr);
+        melhor.observa(nr, &x);
         if nr <= alvo {
             // Substituição do resíduo: confirma com o verdadeiro.
             nr = true_residual(a, b, &x, &mut r);
@@ -231,6 +273,7 @@ pub fn pcg(a: &SparseMatrix, b: &[f64], opts: &IterOptions) -> Result<IterResult
             p[i] = z[i] + beta * p[i];
         }
     }
+    let (x, flag) = melhor.escolhe(a, b, x, flag);
     Ok(finish(a, b, x, flag, it, resvec, nb))
 }
 
@@ -357,6 +400,7 @@ pub fn bicgstab(a: &SparseMatrix, b: &[f64], opts: &IterOptions) -> Result<IterR
         return Ok(finish(a, b, x, IterFlag::Converged, 0, resvec, nb));
     }
     let rhat = r.clone();
+    let mut melhor = Melhor { nr, x: x.clone() };
     let (mut rho, mut alpha, mut omega) = (1.0f64, 1.0f64, 1.0f64);
     let mut v = vec![0.0; n];
     let mut p = vec![0.0; n];
@@ -392,6 +436,7 @@ pub fn bicgstab(a: &SparseMatrix, b: &[f64], opts: &IterOptions) -> Result<IterR
             }
             nr = true_residual(a, b, &x, &mut r);
             resvec.push(nr);
+            melhor.observa(nr, &x);
             if nr <= alvo {
                 flag = IterFlag::Converged;
                 break;
@@ -408,6 +453,7 @@ pub fn bicgstab(a: &SparseMatrix, b: &[f64], opts: &IterOptions) -> Result<IterR
         }
         nr = norm(&r);
         resvec.push(nr);
+        melhor.observa(nr, &x);
         if nr <= alvo {
             nr = true_residual(a, b, &x, &mut r);
             if nr <= alvo {
@@ -416,6 +462,7 @@ pub fn bicgstab(a: &SparseMatrix, b: &[f64], opts: &IterOptions) -> Result<IterR
             }
         }
     }
+    let (x, flag) = melhor.escolhe(a, b, x, flag);
     Ok(finish(a, b, x, flag, it, resvec, nb))
 }
 
@@ -520,7 +567,7 @@ pub fn minres(a: &SparseMatrix, b: &[f64], opts: &IterOptions) -> Result<IterRes
 /// Golub–Kahan. Sem precondicionador neste incremento.
 ///
 /// Parada: ‖Aᵀr − λ²x‖ ≤ tol·‖A‖·‖r‖ (x é solução de mínimos quadrados) ou ‖r‖ ≤ tol·‖b‖
-/// (sistema compatível). O `relres` informado é ‖b − A·x‖/‖b‖.
+/// (sistema compatível). Com b = 0 devolve x = 0 sem iterar. O `relres` informado é ‖b − A·x‖/‖b‖.
 ///
 /// Erros: `formaIncompativel` (b com tamanho ≠ m, x0 com tamanho ≠ n), `naoFinito`,
 /// `opcaoInvalida` (tol, λ).
@@ -549,6 +596,19 @@ pub fn lsqr(a: &SparseMatrix, b: &[f64], damp: f64, opts: &IterOptions) -> Resul
         None => vec![0.0; n],
     };
     let nb = norm(b);
+    if nb == 0.0 {
+        // b = 0: x = 0 é a solução de mínima norma (com ou sem amortecimento), como nos outros
+        // métodos. Regressão: com x₀ ≠ 0, ‖r‖ ≤ tol·‖b‖ = 0 nunca era alcançado.
+        return Ok(finish_ls(
+            a,
+            b,
+            vec![0.0; n],
+            IterFlag::Converged,
+            0,
+            vec![0.0],
+            nb,
+        ));
+    }
     let max_iter = opts.max_iter.unwrap_or(2 * n.max(m).max(50));
     // r₀ = b − A·x₀.
     let mut ax = vec![0.0; m];
