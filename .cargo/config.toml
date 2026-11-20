@@ -1,0 +1,5 @@
+# Limite de paralelismo da compilação. Com 12 tarefas, compilar e ligar os ~66 binários de
+# teste chega a 4,3 GB de RAM; com 6, cerca de 2,2 GB, com tempo praticamente igual (medido em
+# 2026-11-20, máquina de 12 núcleos e 11 GB). Sobrescreva com `cargo … -j N` se quiser.
+[build]
+jobs = 6

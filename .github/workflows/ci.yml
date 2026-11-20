@@ -1,0 +1,77 @@
+name: ci
+# Economia de minutos (pergunta 37, A+B): no push só Linux x86; a matriz completa (Linux ARM,
+# Windows e macOS, que contam 2× e 10× na cota) e a cobertura rodam em PR, semanalmente e sob
+# demanda. Um push novo cancela a execução anterior ainda em andamento no mesmo ramo.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ github.event_name == 'push' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "ubuntu-24.04-arm", "windows-latest", "macos-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain (rust-toolchain.toml)
+        run: rustup show
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+
+  licencas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses bans sources advisories
+
+  documentacao-gerada:
+    # Garante que catálogo/matriz/requisitos/testes estejam sincronizados com docs/dados/funcionalidades.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -I ferramentas/gerar_docs.py --verificar
+
+  cobertura:
+    # Padrão rigoroso (CLAUDE.md §7.6): falha se a cobertura de linhas cair abaixo de 90%.
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - run: cargo llvm-cov --workspace --fail-under-lines 90 --summary-only
+
+  mutacao:
+    # Padrão rigoroso (CLAUDE.md §7.7): mutantes no código alterado pelo PR devem ser detectados.
+    # A execução completa (horas) é feita antes de concluir cada funcionalidade e registrada em
+    # docs/progresso/Fxxx.md.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants
+      - run: git diff origin/${{ github.base_ref }}.. > alteracoes.diff
+      - run: cargo mutants --in-diff alteracoes.diff --workspace --profile=mutants

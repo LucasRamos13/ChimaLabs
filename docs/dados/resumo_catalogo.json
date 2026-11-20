@@ -1,0 +1,40 @@
+{
+ "total": 162,
+ "por_status": {
+  "PLANEJADA": 131,
+  "EM DESENVOLVIMENTO": 17,
+  "INVESTIGADA PARCIALMENTE": 12,
+  "IMPLEMENTADA": 1,
+  "NÃO VERIFICÁVEL": 1
+ },
+ "por_area": {
+  "LNG": 20,
+  "DAT": 6,
+  "MAT": 16,
+  "GRF": 11,
+  "APP": 5,
+  "IDE": 21,
+  "DOC": 4,
+  "IO": 15,
+  "BIG": 2,
+  "NET": 5,
+  "EXT": 7,
+  "PAR": 3,
+  "TST": 6,
+  "PKG": 4,
+  "INS": 6,
+  "LOC": 3,
+  "SIM": 28
+ },
+ "servico_externo": [
+  "F063",
+  "F105",
+  "F121",
+  "F138",
+  "F166",
+  "F167",
+  "F171",
+  "F174"
+ ],
+ "criterios": 355
+}

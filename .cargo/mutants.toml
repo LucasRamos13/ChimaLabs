@@ -1,0 +1,95 @@
+# Configuração do cargo-mutants (CLAUDE.md §7.7: nenhum mutante sobrevivente sem justificativa).
+# Cada exclusão abaixo é um mutante EQUIVALENTE (não altera nenhum resultado observável) e está
+# justificada aqui e em docs/progresso/Fxxx.md. Os padrões casam com um único mutante cada
+# (conferido com `cargo mutants --list`); não use padrões amplos.
+exclude_re = [
+    # F040, balance (escalonamento): `c == 0 || r == 0` → `&&`. Com só um lado nulo, f vai a
+    # 2^1100 = ∞ e a checagem de faixa [1e-150, 1e150] descarta o passo: mesmo resultado (o atalho
+    # só poupa passos). Desde 2026-11-18 o laço está em `scale_block`.
+    'replace \|\| with && in scale_block$',
+    # F040, solve: pré-filtro "diagonal > 0" antes de tentar Cholesky → `>= 0`. Com diagonal nula
+    # a fatoração de Cholesky falha de qualquer modo e a solução cai na LU: mesmo resultado.
+    'replace > with >= in solve$',
+    # F040, conditioning_warnings: `rcond < ε` → `<= ε`. Só difere com rcond exatamente igual a ε
+    # (estimativa de ponto flutuante), caso não construível.
+    'replace < with <= in conditioning_warnings$',
+    # F040, expm: `s <= 170 && finitas` → `s > 170 && …`. Só troca o reaproveitamento das potências
+    # A²ᵏ·2^{−2ks} pelo recálculo a partir de 2⁻ˢA (3 produtos a mais): mesmo valor, a menos de
+    # arredondamento. Afeta só o custo.
+    'replace <= with > in expm$',
+    # F042, zeta: `|s| < 1e-8` → `<=` (escolha entre a série −½ − ½·ln(2π)·s e a equação
+    # funcional). Em |s| = 1e-8 os dois caminhos dão o mesmo valor a 1 ulp (erro da série
+    # ~s² = 1e-16): o limiar não é observável.
+    'replace < with <= in zeta$',
+    # F042, crivo: `p * p` → `p + p` só faz marcar múltiplos já compostos (a partir de 3p em vez
+    # de p²): mesmo resultado, mais custo.
+    'replace \* with \+ in first_marked_multiple$',
+    # F042, crivo: `√hi > 2²⁴` → `>=`: com √hi = 2²⁴ os primos-base já cobrem todos os compostos ≤ hi,
+    # e a confirmação extra por isprime só devolve "primo" para os sobreviventes (custo).
+    'replace > with >= in needs_confirmation$',
+    # F042, gama complexa: fronteiras entre métodos que concordam no limite. Em Im z = 20,
+    # ln(1 − e^{2πiz}) < 1e-54 é invisível em f64; em |w| = 10 a série de Stirling já converge
+    # (resto < 3e-17) e um deslocamento a mais é exato; em Re z = 2 descer pela recorrência ou
+    # usar o disco em 3/2 dá o mesmo valor. Só o lado da igualdade muda.
+    'replace > with >= in is_large_im$',
+    'replace < with <= in needs_shift$',
+    'replace > with >= in downward_applies$',
+    # F042, erro complexo: fronteiras em que os dois caminhos são fórmulas exatas do mesmo valor.
+    # Em Im z = 0, w(x) = 2e^(−x²) − w(−x) (DLMF 7.4.3); em Re z = 0, erfcx(z) = 2e^(z²) − erfcx(−z);
+    # na troca de malha do trapézio (distância 0,25h ao nó), as duas malhas convergem.
+    'replace < with <= in faddeeva$',
+    'replace < with <= in trapezoid$',
+    'replace < with <= in erfcx_complex$',
+    # F042, Bessel complexas: fronteiras em que os dois lados são exatos. Subir o limiar da
+    # assintótica de I só usa Miller, também exata ali (ν²/2 → 2ν²); em |σ| = 1 a série de
+    # senh σ/σ e a forma direta coincidem; em ν = 0 as reflexões de ordem negativa são a
+    # identidade (cos 0 = 1, sen 0 = 0).
+    'replace / with \* in asymptotic_radius$',
+    'replace > with >= in sinhc$',
+    'replace < with <= in negative_order$',
+    # F042, Bessel complexas: o reescalonamento da recorrência de Miller em |p| > 1e250 contra
+    # ≥ 1e250 (igualdade exata de um módulo de ponto flutuante, não construível).
+    'replace > with >= in i_miller_scaled$',
+    # F042, Bessel complexas: o índice inicial de Miller só cresce com `+` → `*` (os operandos são
+    # ≥ 3); um início mais alto é igualmente exato e só mais lento.
+    'replace \+ with \* in miller_start$',
+    # F048, mudança de variável em trecho finito: em t = 0 as fórmulas a partir de cada extremo
+    # dão o mesmo ponto médio (lo + 2q = hi − 2q), então `t < 0` ou `t <= 0` é indiferente.
+    'replace < with <= in Map::apply$',
+    # F048: |Q| + E é finita exatamente quando as duas parcelas são; com `−` vale o mesmo, e com
+    # `·` só diferiria num estouro |Q|·E > 1e308, inalcançável com estimativas de erro reais.
+    'replace \+ with (-|\*) in all_finite$',
+    # F042, incremento 9: fronteiras entre fórmulas igualmente exatas dos dois lados.
+    # log1pmx em |t| = ½ (série ou ln_1p(t) − t), prefator de gammainc em a = 15 (Stirling ou
+    # exp direto), betaln em a + b = 170 (gamas ou dupla-dupla) e o critério de parada de Lentz
+    # (|δ − 1| < 1e-16 contra ≤).
+    'replace > with >= in log1pmx$',
+    'replace < with <= in gammainc_prefactor$',
+    'replace < with <= in betaln$',
+    'replace < with <= in lentz_n$',
+    # betaln(0, b): a guarda `a > 0` contra `>= 0` é indiferente, porque ln Γ(0) = Inf vira NaN
+    # na dupla-dupla (Inf − Inf), e com a + b < 170 a beta já devolve NaN.
+    'replace > with >= in betaln$',
+    # gammainc: limite de termos maior (+ → *) só custa tempo; série ou fração contínua na
+    # fronteira x = a + 1 (ou x = a) convergem as duas; o critério de parada da série (termo <
+    # 1e-17·soma) só decide quantos termos desprezíveis somar.
+    'replace \+ with \* in terms_cap$',
+    'replace (< with <=|\+ with \*) in use_series$',
+    'replace (&& with \|\||> with >=|\* with /|< with <=) in lower_series$',
+    # gammaln: fronteiras entre fórmulas válidas dos dois lados. x < 0 (x = 0 já é polo),
+    # x < ½ (ln Γ(1+x) − ln x ou os ramos seguintes) e x < 15 (ln Γ por gamma ou Stirling).
+    'replace < with <= in gammaln$',
+    # F053: (hi << 32) | lo com metades disjuntas; `|` e `^` dão o mesmo valor.
+    'replace \| with \^ in Rng::next_u64$',
+    # F053, Lemire: com a parte baixa l = s, o limite t = 2⁶⁴ mod s < s não rejeita; entrar ou
+    # não no bloco de rejeição dá o mesmo valor.
+    'replace < with <= in Rng::bounded$',
+    # MT19937: (mt[k] & 0x80000000) | (mt[k+1] & 0x7fffffff) com máscaras disjuntas.
+    'replace \| with \^ in Mt19937::twist$',
+    # F053, ziggurat: comparações estritas entre valores aleatórios contínuos (z contra xᵢ₊₁,
+    # 2y contra t², y contra f(z)); a igualdade exata tem probabilidade ~2⁻⁵³ por sorteio.
+    'replace (< with <=|> with >=) in normal$',
+    # F049, signed: `dir * x` → `dir / x`. Com dir = ±1, os dois dão o mesmo valor exato:
+    # equivalente. Todas as operações que dependem do sentido da integração passam por ela.
+    'replace \* with / in signed$',
+]

@@ -1,0 +1,203 @@
+===============================================================================
+CHIMALAB — LICENÇAS E RESTRIÇÕES
+===============================================================================
+Arquivo obrigatório (CLAUDE.md §6). Atualize ANTES de adicionar qualquer dependência.
+
+AVISO: este arquivo não é parecer jurídico.
+
+-------------------------------------------------------------------------------
+ÍNDICE
+  1. Política de licenças
+  2. Parte B — dependências e ferramentas do ChimaLab
+  3. §13 — Alternativas permissivas
+  4. §14 — Decisões adotadas
+  5. §15 — Questões jurídicas em aberto
+-------------------------------------------------------------------------------
+
+POLÍTICA DE LICENÇAS DO CHIMALAB
+  Permitidas inicialmente (com cumprimento das obrigações): MIT, ISC, BSD-2-Clause,
+  BSD-3-Clause, Apache-2.0, Zlib, 0BSD. Dual "MIT OR Apache-2.0" conta como permitida;
+  a opção escolhida deve ser registrada.
+  Exigem avaliação e autorização específica: GPL, AGPL, LGPL, MPL, EPL, SSPL,
+  BUSL/BSL (Business Source), Commons Clause, proprietárias, personalizadas, sem
+  licença, ambíguas. Variantes com exceção (ex.: "Apache-2.0 WITH LLVM-exception"),
+  BSL-1.0 (Boost), Unicode-3.0, OFL-1.1, CC0-1.0, curl, Libpng e licenças BSD-like
+  próprias (HDF5, NetCDF) não estão na lista inicial e precisam de aprovação
+  explícita registrada em §14.
+
+===============================================================================
+PARTE B — CHIMALAB
+===============================================================================
+Estado: dependências de runtime ainda NÃO adicionadas (crates sem [dependencies]).
+Ferramentas de build aprovadas e verificadas em 2026-11-17 estão marcadas APROVADA.
+Antes de adicionar cada uma: confirmar versão, licença no repositório upstream
+(arquivo LICENSE e Cargo.toml/package.json), dependências transitivas
+(cargo-deny / license-checker) e registrar abaixo, mudando o estado para APROVADA.
+
+Nome | Uso | Licença (a confirmar na adição) | Estado
+-----|-----|---------------------------------|-------
+Rust toolchain 1.100.0 (rustc, cargo, clippy, rustfmt) | linguagem do núcleo | MIT OR Apache-2.0 (LICENSE-* em share/doc/cargo, verificado) | APROVADA (ferramenta de build; não redistribuída)
+faer 0.24.4 (features std, rayon, linalg, sparse-linalg) | álgebra linear densa/esparsa | MIT (verificado: cargo info) ; transitivas verificadas por cargo-deny em 2026-11-17 e de novo em 2026-11-20 ao ligar sparse-linalg (DT-30), sem crates novos | APROVADA
+OpenBLAS + LAPACK (opcional) | BLAS/LAPACK otimizado | BSD-3-Clause | PROPOSTA
+rustfft 6.4.1 | FFT | MIT OR Apache-2.0 (verificado; transitivas primal-check, strength_reduce, transpose, num-integer verificadas por cargo-deny em 2026-11-17) | APROVADA
+num-complex 0.4 / num-traits | aritmética | MIT OR Apache-2.0 (verificado por cargo-deny) | APROVADA
+SUNDIALS (CVODE/IDA) | EDO/DAE rígidas | BSD-3-Clause | PROPOSTA
+arpack-ng | autovalores parciais | BSD-3-Clause | PROPOSTA
+AMD / COLAMD (SuiteSparse, só estes) | ordenações esparsas | BSD-3-Clause | PROPOSTA (verificar cada pacote do SuiteSparse)
+petgraph | grafos | MIT OR Apache-2.0 | PROPOSTA
+spade | Delaunay | MIT OR Apache-2.0 | PROPOSTA
+rand / rand_distr | RNG | MIT OR Apache-2.0 | PROPOSTA
+dashu | precisão arbitrária | MIT OR Apache-2.0 | PROPOSTA
+chrono / chrono-tz | datas e fusos | MIT OR Apache-2.0 | PROPOSTA
+IANA tzdb | dados de fuso | domínio público | PROPOSTA (aprovar)
+fancy-regex | expressões regulares | MIT | PROPOSTA
+unicode-normalization / unicode-segmentation | Unicode | MIT OR Apache-2.0 | PROPOSTA
+logos (ou lexer próprio) | análise léxica | MIT OR Apache-2.0 | PROPOSTA
+cranelift | JIT | Apache-2.0 WITH LLVM-exception | LICENÇA APROVADA (D14); crate PROPOSTA
+wgpu | renderização GPU | MIT OR Apache-2.0 | PROPOSTA
+lyon | tesselação 2D | MIT OR Apache-2.0 | PROPOSTA
+tiny-skia | rasterização CPU | BSD-3-Clause | PROPOSTA
+resvg / usvg | SVG | Apache-2.0 OR MIT | PROPOSTA
+pdf-writer | exportação PDF | MIT OR Apache-2.0 | PROPOSTA
+rustybuzz + ttf-parser | texto | MIT | PROPOSTA
+KaTeX | notação matemática na UI | MIT | PROPOSTA
+Fontes da UI | tipografia | OFL-1.1 | LICENÇA APROVADA (D15); fontes PROPOSTAS (ex.: Inter, JetBrains Mono)
+Tauri | shell desktop | MIT OR Apache-2.0 | PROPOSTA
+TypeScript | frontend | Apache-2.0 | PROPOSTA (ferramenta)
+Preact ou SolidJS | UI web | MIT | PROPOSTA
+CodeMirror 6 | editor | MIT | PROPOSTA
+tower-lsp | servidor de linguagem | MIT | PROPOSTA
+tree-sitter | parsing incremental | MIT | PROPOSTA
+serde / serde_json | JSON | MIT OR Apache-2.0 | PROPOSTA
+quick-xml | XML | MIT | PROPOSTA
+calamine | leitura de planilhas | MIT | PROPOSTA
+rust_xlsxwriter | escrita xlsx | MIT OR Apache-2.0 | PROPOSTA
+arrow-rs / parquet | colunar | Apache-2.0 | PROPOSTA
+image / png / zune-jpeg / tiff | imagens | MIT OR Apache-2.0 (zune: + Zlib) | PROPOSTA
+OpenJPEG | JPEG 2000 | BSD-2-Clause | PROPOSTA
+hound / claxon / lewton | áudio WAV/FLAC/OGG | Apache-2.0 / Apache-2.0 / MIT OR Apache-2.0 | PROPOSTA
+cpal | E/S de áudio | Apache-2.0 | PROPOSTA
+HDF5 (C) | HDF5 e .mat v7.3 | LicenseRef-HDF5 (estilo BSD-3) | LICENÇA APROVADA (D18); componente PROPOSTO
+netcdf-c | NetCDF | BSD-3-Clause (desde 2018) | LICENÇA APROVADA (D18); componente PROPOSTO
+zip / flate2 / tar / zstd | compactação | MIT (zip), MIT OR Apache-2.0, MIT/BSD | PROPOSTA
+reqwest / hyper / rustls | HTTP/TLS | MIT OR Apache-2.0 (rustls: + ISC) | PROPOSTA
+tokio | assíncrono | MIT | PROPOSTA
+keyring | segredos | MIT OR Apache-2.0 | PROPOSTA
+nix / windows | APIs do SO | MIT / MIT OR Apache-2.0 | PROPOSTA
+pyo3 | Python | MIT OR Apache-2.0 | PROPOSTA
+jni | Java | MIT OR Apache-2.0 | PROPOSTA
+netcorehost | .NET | MIT | PROPOSTA
+libloading | bibliotecas C | ISC | PROPOSTA
+libclang | interfaces C/C++ | Apache-2.0 WITH LLVM-exception | LICENÇA APROVADA (D14); componente PROPOSTO
+gitoxide (gix) | Git | MIT OR Apache-2.0 | PROPOSTA
+Cabeçalhos FMI | co-simulação | BSD-2-Clause | PROPOSTA
+rayon / crossbeam | paralelismo | MIT OR Apache-2.0 | PROPOSTA
+ed25519-dalek | assinatura de pacotes/updates | BSD-3-Clause | PROPOSTA
+tantivy | busca na ajuda | MIT | PROPOSTA
+fluent-rs | localização | Apache-2.0 OR MIT | PROPOSTA
+Ferramentas de teste: proptest, insta, criterion, cargo-fuzz, Playwright, Vitest |
+  testes | MIT/Apache-2.0 (insta: Apache-2.0; Playwright: Apache-2.0) | PROPOSTA
+
+Ferramentas de teste (desenvolvimento/CI, não redistribuídas), verificadas em 2026-11-17:
+  proptest 1.12.0 (MIT OR Apache-2.0; dev-dependency; transitivas aprovadas por cargo-deny),
+  cargo-llvm-cov 0.9.1 (Apache-2.0 OR MIT), cargo-mutants 27.1.0 (MIT),
+  componente llvm-tools-preview do toolchain Rust (Apache-2.0 WITH LLVM-exception; ferramenta
+  de build, não redistribuída), taiki-e/install-action (Apache-2.0 OR MIT) — APROVADAS.
+Ferramentas de CI de licença: cargo-deny 0.21.0 (MIT OR Apache-2.0, verificado no Cargo.toml
+upstream) — APROVADA; cargo-about (MIT OR Apache-2.0) — PROPOSTA, para THIRD_PARTY_NOTICES.
+Ações de CI (GitHub): actions/checkout, actions/setup-python (MIT), EmbarkStudios/cargo-deny-action
+(MIT OR Apache-2.0) — ferramentas de CI, não redistribuídas.
+
+§13. ALTERNATIVAS PERMISSIVAS (a bibliotecas restritivas comuns na área)
+  FFTW (GPL)              → rustfft
+  libgit2 (GPL+exc.)      → gitoxide, ou o CLI git do sistema
+  SuiteSparse UMFPACK/SPQR/CHOLMOD (GPL/LGPL) → faer sparse + AMD/COLAMD
+  GMP/MPFR (LGPL)         → dashu
+  libsndfile (LGPL)       → hound/claxon/lewton
+  FFmpeg/GStreamer (LGPL) → codecs do SO via FFI própria; openh264 (BSD-2) com
+                            avaliação de patentes
+  Hunspell (MPL/GPL/LGPL) → corretor próprio + dicionários com licença compatível (PENDENTE)
+  RXTX (LGPL) / serialport-rs (MPL-2.0) → implementação própria sobre termios/Win32
+  Qhull (licença própria) → spade + quickhull próprio
+  GPC (não comercial)     → geo / i_overlay (MIT OR Apache-2.0)
+  LibXL (comercial)       → calamine + rust_xlsxwriter
+  Kakadu (comercial)      → OpenJPEG
+  Saxon/Xalan (MPL/Apache) → XSLT: libxslt (MIT) via FFI ou implementação própria
+  Antenna House / FOP     → pdf-writer + layout próprio
+  JRE (Oracle BCL)        → não embutir JVM; interoperabilidade opcional com JDK do usuário
+  Qt (LGPL/comercial)     → Tauri + webview do SO
+  Intel MKL/IPP (proprietária) → faer / OpenBLAS
+  CEF (BSD + Chromium)    → webview do SO via Tauri (evita redistribuir Chromium)
+
+§14. DECISÕES ADOTADAS
+  D1. Não reutilizar NENHUM arquivo, biblioteca, recurso, texto ou ícone de produto
+      proprietário.
+  D2. Dependências upstream são obtidas apenas de fontes oficiais.
+  D3. Licenças restritivas, proprietárias ou não confirmadas ficam proibidas até
+      haver aprovação registrada aqui.
+  D4. Itens "REQUER APROVAÇÃO" (LLVM-exception, BSD-like do HDF5/NetCDF, OFL)
+      bloqueiam apenas as funcionalidades que dependem deles, até decisão.
+  D5. Formatos próprios e abertos (ZIP+JSON) para scripts vivos, apps, modelos,
+      projetos e pacotes. Importadores de formatos de terceiros só no escopo do
+      DT-10.
+  D6. Telemetria desligada por padrão.
+  D7. Desenvolvimento em sala limpa: os implementadores trabalham só com os
+      requisitos deste repositório; consultar código do Octave (GPL) ou de outros
+      projetos copyleft é proibido; trechos de documentação de produtos
+      proprietários nunca entram no repositório.
+  D8. Nome "ChimaLab": definido pelo responsável em 2026-11-17 (DT-17). Projeto de
+      portfólio, sem registro de marca (DT-25). Logotipo: ver assets/PROVENIENCIA.md.
+  D9. Licença do próprio ChimaLab: MIT OR Apache-2.0 (aprovada em 2026-11-17, DT-15).
+      Textos em LICENSE-MIT e LICENSE-APACHE (texto padrão, copiado do pacote oficial
+      do toolchain Rust: share/doc/rust/licenses/).
+  D11. Unicode-3.0 APROVADA pelo responsável em 2026-11-17. Motivo: exigida por
+      unicode-ident (licença "(MIT OR Apache-2.0) AND Unicode-3.0"), dependência de
+      compilação de proc-macro2/syn, presente em praticamente todo o ecossistema Rust
+      (descoberta ao adicionar faer). Obrigação: manter o aviso de copyright/permissão
+      no THIRD_PARTY_NOTICES gerado pelo cargo-about.
+  D12. REJEITADO (2026-11-17): crate puruspe 0.4.4 (declarado MIT OR Apache-2.0). O README cita
+      "Numerical Recipes" como referência, e o código reproduz nomes de rotinas (gammp, gammq,
+      betai, besseljy, besselik) e constantes (ASWITCH = 100, NGAU = 18) desse livro, cujo
+      código-fonte tem licença restritiva. Risco de obra derivada e licença inválida.
+      Regra geral: nenhuma dependência ou implementação derivada do código do Numerical Recipes.
+      Funções especiais (F042) serão implementadas a partir de fontes primárias (DLMF/NIST,
+      artigos originais).
+  D13. Oráculo de testes: mpmath 1.4.1 (BSD-3-Clause), instalado só em ambiente virtual de
+      desenvolvimento, para gerar valores de referência gravados em tests/dados/. Não é
+      dependência do produto nem é redistribuído.
+  D14. Apache-2.0 WITH LLVM-exception APROVADA pelo responsável em 2026-11-18 (DT-19, item 9).
+      A exceção só amplia as permissões da Apache-2.0 (dispensa atribuição em binários
+      compilados). Cada componente (cranelift, libclang) ainda passa pela verificação do §6.
+  D15. OFL-1.1 APROVADA pelo responsável em 2026-11-18 (DT-19, item 10), para fontes da UI.
+      Obrigações: manter o arquivo de licença junto às fontes e não vendê-las isoladamente.
+      Fontes com Nome de Fonte Reservado não podem ser modificadas sob o mesmo nome.
+  D16. OpenBLAS (BSD-3-Clause) AUTORIZADO pelo responsável em 2026-11-18 (DT-19, item 13), só
+      como referência de benchmark do CA2 do F040 em desenvolvimento. Não é dependência do
+      produto nem é redistribuído.
+  D17. Aviso RUSTSEC-2024-0436 (paste sem manutenção) ignorado em deny.toml: macro de
+      compilação transitiva do faer → gemm, sem vulnerabilidade e fora do binário. Revisar
+      quando o faer trocar a dependência.
+  D18. Licenças do HDF5 (SPDX "HDF5", estilo BSD-3) e do netCDF-C (BSD-3-Clause desde 2018)
+      APROVADAS em 2026-11-18 (DT-19 item 11, por pesquisa; DT-21). Obrigações: manter os avisos
+      de copyright e as condições em fonte e binário (THIRD_PARTY_NOTICES), incluindo o aviso da
+      parte LBNL do HDF5, e não usar os nomes dos titulares para endossar o produto.
+  D19. TestU01 1.2.3 (Apache-2.0 desde 2020-11-09, segundo a página de copyright de
+      simul.iro.umontreal.ca/testu01; Copyright (c) 2002 Pierre L'Ecuyer e Université de Montréal)
+      APROVADO como ferramenta de desenvolvimento para os testes estatísticos de F053 (DT-23).
+      Compilado localmente fora do repositório, não redistribuído; obrigações da Apache-2.0
+      (preservar avisos) cumpridas por não redistribuir. Vetores KAT do Random123 (D. E. Shaw
+      Research, BSD-3-Clause) usados só como dados de teste, com atribuição no arquivo de dados.
+  D10. Política aplicada automaticamente por deny.toml (cargo-deny): verificado em
+      2026-11-17 que o workspace passa e que uma dependência LGPL-3.0+ (rug) é rejeitada.
+
+§15. QUESTÕES JURÍDICAS EM ABERTO (sem parecer; decisões por pesquisa no DT-19 e DT-21)
+  Q2. Compatibilidade opcional com sintaxe e nomes de funções de linguagens de
+      terceiros (DT-09: linguagem própria; modo de compatibilidade isolado).
+  Q3. Leitura e escrita de formatos de dados de terceiros para interoperabilidade
+      (DT-10: só .mat v5/v7.3, a partir de fontes independentes e permissivas).
+  Q4. Patentes sobre solvers, motor de simulação, renderização, geração de código e
+      recursos de IDE (triagem por funcionalidade, DT-21).
+  Q5. Sala limpa com assistentes de IA: proveniência declarada em cada commit.
+  Q8. Dados de terceiros em serviços (mapas, catálogos): adiado para a fase de serviços.
+
+===============================================================================

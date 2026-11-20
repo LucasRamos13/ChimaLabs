@@ -1,0 +1,41 @@
+# Política de licenças do ChimaLab (LICENCAS_E_RESTRICOES.txt). O CI falha para qualquer licença fora desta lista.
+# Para incluir uma licença extra (ex.: "Apache-2.0 WITH LLVM-exception", BSL-1.0, Unicode-3.0, OFL-1.1),
+# primeiro registre a aprovação em LICENCAS_E_RESTRICOES.txt §14 e em docs/DECISOES_TECNICAS.md.
+
+[graph]
+all-features = true
+
+[licenses]
+allow = [
+    "MIT",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Apache-2.0",
+    "Zlib",
+    "0BSD",
+    "Unicode-3.0",   # aprovada pelo responsável em 2026-11-17 (LICENCAS_E_RESTRICOES.txt D11)
+]
+confidence-threshold = 0.93
+unused-allowed-license = "allow"
+private = { ignore = true }   # crates do próprio workspace (publish = false)
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true   # dependências internas do workspace por caminho (publish = false)
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+    # paste 1.0.15 (macro de compilação, MIT OR Apache-2.0), dependência transitiva de faer → gemm.
+    # O aviso é de manutenção encerrada, não de vulnerabilidade: o crate só gera código em tempo
+    # de compilação e não entra no binário. Revisar quando o faer trocar de dependência.
+    { id = "RUSTSEC-2024-0436", reason = "paste sem manutenção; macro de compilação transitiva do faer, sem vulnerabilidade" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

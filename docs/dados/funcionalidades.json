@@ -1,0 +1,4674 @@
+{
+ "areas": {
+  "LNG": {
+   "nome": "Linguagem e runtime",
+   "modulo": "chimalab-lang / chimalab-runtime",
+   "deps": "Rust std; logos (MIT/Apache-2.0) ou lexer próprio; cranelift (Apache-2.0 WITH LLVM-exception — requer aprovação)",
+   "fluxo": "Usuário digita/executa código na janela de comandos, script ou função → runtime analisa, avalia e exibe resultado ou erro."
+  },
+  "DAT": {
+   "nome": "Tipos de dados de alto nível",
+   "modulo": "chimalab-data",
+   "deps": "chrono (MIT/Apache-2.0); chrono-tz (MIT/Apache-2.0) + IANA tzdb (domínio público)",
+   "fluxo": "Usuário cria/converte valores do tipo → aplica operações, indexação e funções → exibe, exporta ou persiste."
+  },
+  "MAT": {
+   "nome": "Matemática e computação numérica",
+   "modulo": "chimalab-math",
+   "deps": "faer (MIT); OpenBLAS (BSD-3-Clause) opcional; rustfft (MIT/Apache-2.0); SUNDIALS (BSD-3-Clause); implementação própria onde não houver opção permissiva",
+   "fluxo": "Usuário chama a função com arrays de entrada e opções → recebe resultado numérico (e diagnósticos/avisos quando aplicável)."
+  },
+  "GRF": {
+   "nome": "Gráficos e visualização",
+   "modulo": "chimalab-graphics",
+   "deps": "wgpu (MIT/Apache-2.0); lyon (MIT/Apache-2.0); tiny-skia (BSD-3-Clause); resvg (Apache-2.0/MIT); pdf-writer (MIT/Apache-2.0); KaTeX (MIT) para notação matemática",
+   "fluxo": "Usuário chama função gráfica ou interage com a janela de figura → objetos gráficos criados/atualizados → renderização e opcional exportação."
+  },
+  "APP": {
+   "nome": "Construção de aplicativos e interfaces",
+   "modulo": "chimalab-ui",
+   "deps": "Tauri (MIT/Apache-2.0); componentes web próprios",
+   "fluxo": "Usuário cria interface por código ou editor visual → define callbacks → executa e interage com o aplicativo."
+  },
+  "IDE": {
+   "nome": "Ambiente de desenvolvimento",
+   "modulo": "chimalab-desktop / chimalab-lsp",
+   "deps": "Tauri (MIT/Apache-2.0); CodeMirror 6 (MIT); tower-lsp (MIT); tree-sitter (MIT)",
+   "fluxo": "Usuário opera o ambiente desktop (painéis, editor, ferramentas) → ação refletida no estado do runtime/arquivos."
+  },
+  "DOC": {
+   "nome": "Documentos executáveis e publicação",
+   "modulo": "chimalab-notebook",
+   "deps": "pulldown-cmark (MIT); KaTeX (MIT); formato de documento próprio (ZIP+JSON)",
+   "fluxo": "Usuário edita documento com texto, código e resultados → executa seções → exporta/publica."
+  },
+  "IO": {
+   "nome": "Entrada/saída e formatos de arquivo",
+   "modulo": "chimalab-io",
+   "deps": "serde_json (MIT/Apache-2.0); quick-xml (MIT); calamine (MIT); rust_xlsxwriter (MIT/Apache-2.0); arrow-rs/parquet (Apache-2.0); image (MIT/Apache-2.0); HDF5 C (licença BSD-like própria — revisar)",
+   "fluxo": "Usuário chama função de leitura/escrita (ou ferramenta de importação) com caminho/opções → dados convertidos de/para estruturas do runtime."
+  },
+  "BIG": {
+   "nome": "Dados grandes e processamento fora da memória",
+   "modulo": "chimalab-io / chimalab-data",
+   "deps": "arrow-rs (Apache-2.0); rayon (MIT/Apache-2.0)",
+   "fluxo": "Usuário define fonte de dados particionada → itera/agrega em blocos sem carregar tudo na memória → coleta resultado."
+  },
+  "NET": {
+   "nome": "Rede, dispositivos e serviços",
+   "modulo": "chimalab-net",
+   "deps": "reqwest (MIT/Apache-2.0); rustls (Apache-2.0/ISC/MIT); tokio (MIT); nix (MIT); windows (MIT/Apache-2.0)",
+   "fluxo": "Usuário configura conexão/endpoint → envia/recebe dados → trata respostas, tempo-limite e erros."
+  },
+  "EXT": {
+   "nome": "Interoperabilidade com outras linguagens",
+   "modulo": "chimalab-ext",
+   "deps": "pyo3 (MIT/Apache-2.0); jni (MIT/Apache-2.0); libloading (ISC); windows (MIT/Apache-2.0)",
+   "fluxo": "Usuário compila/carrega componente externo ou chama a outra linguagem → dados convertidos na fronteira → resultado retorna ao runtime."
+  },
+  "PAR": {
+   "nome": "Concorrência e desempenho",
+   "modulo": "chimalab-runtime",
+   "deps": "rayon (MIT/Apache-2.0); crossbeam (MIT/Apache-2.0)",
+   "fluxo": "Usuário dispara execução concorrente/assíncrona → tarefas executam → resultados coletados ou cancelados."
+  },
+  "TST": {
+   "nome": "Testes, qualidade e automação de build",
+   "modulo": "chimalab-test",
+   "deps": "implementação própria; quick-junit (MIT/Apache-2.0) opcional",
+   "fluxo": "Usuário escreve testes/tarefas → executa o executor → recebe relatório (texto, JUnit, cobertura)."
+  },
+  "PKG": {
+   "nome": "Pacotes, extensões e distribuição",
+   "modulo": "chimalab-pkg",
+   "deps": "zip (MIT); semver (MIT/Apache-2.0); ed25519-dalek (BSD-3-Clause) para assinatura",
+   "fluxo": "Usuário empacota, publica, instala ou remove extensão/pacote → dependências resolvidas → caminho atualizado."
+  },
+  "INS": {
+   "nome": "Instalação, atualização, conta e telemetria",
+   "modulo": "chimalab-install",
+   "deps": "instalador próprio; minisign/ed25519 (BSD-3-Clause/ISC) para assinatura",
+   "fluxo": "Usuário instala/atualiza/remove o produto (interativo ou silencioso) → componentes selecionados gravados/verificados."
+  },
+  "LOC": {
+   "nome": "Ajuda, documentação e localização",
+   "modulo": "chimalab-help",
+   "deps": "fluent-rs (Apache-2.0/MIT); tantivy (MIT) para busca",
+   "fluxo": "Usuário consulta ajuda/documentação ou troca idioma → conteúdo localizado exibido."
+  },
+  "SIM": {
+   "nome": "Modelagem e simulação por diagramas de blocos",
+   "modulo": "fluxo-*",
+   "deps": "chimalab-math; SUNDIALS (BSD-3-Clause); cabeçalhos FMI (BSD-2-Clause); editor de diagramas próprio",
+   "fluxo": "Usuário constrói/edita modelo de blocos → configura parâmetros e solver → simula → inspeciona/registra sinais."
+  }
+ },
+ "juridico": {
+  "default": "Comportamento funcional e nomes de funções/sintaxe: compatibilidade de linguagem é questão PENDENTE de avaliação jurídica (ver LICENCAS_E_RESTRICOES.txt §15, Q2). Nenhum texto/código do original pode ser usado.",
+  "fmt": "Leitura/escrita de formatos de terceiros para interoperabilidade: só no escopo do DT-10, a partir de especificações e implementações independentes e permissivas.",
+  "svc": "Depende de serviço ou infraestrutura de terceiros: não reproduzir acesso; propor serviço próprio. Avaliação jurídica pendente para qualquer integração.",
+  "pat": "Possível patente/técnica proprietária não verificada: busca de patentes PENDENTE; usar algoritmos publicados.",
+  "none": "Sem restrição jurídica específica identificada além das gerais (marca e independência de implementação)."
+ },
+ "funcionalidades": [
+  {
+   "id": "F001",
+   "area": "LNG",
+   "nome": "Interpretador interativo (janela de comandos)",
+   "descricao": "Avaliação interativa de expressões e comandos com exibição automática de resultados.",
+   "necessidade": "Exploração rápida de dados e cálculos sem compilar.",
+   "entradas": "Texto de comando; teclas de controle (histórico, interrupção).",
+   "saidas": "Valores exibidos; variável implícita de resultado; mensagens de erro/aviso.",
+   "comportamento": "Cada linha é analisada e executada; ponto-e-vírgula suprime exibição; resultado sem atribuição vai para variável implícita 'ans'.",
+   "regras": "Exibição respeita formato numérico ativo; vírgula separa comandos exibindo; Ctrl+C interrompe execução.",
+   "casos_especiais": "Comandos multilinha (blocos if/for abertos); sintaxe de comando ('hold on'); entrada muito longa.",
+   "erros": "Erro de sintaxe com posição; identificador indefinido; interrupção pelo usuário.",
+   "aceitacao": [
+    "Expressão '1+1' exibe 2 e define ans",
+    "';' suprime exibição",
+    "Bloco multilinha só executa após 'end'",
+    "Ctrl+C interrompe laço infinito em <1s sem perder o workspace"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F002",
+    "F018"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Parser recursivo-descendente próprio + interpretador sobre AST/bytecode; REPL com detecção de bloco incompleto.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F002",
+   "area": "LNG",
+   "nome": "Scripts e funções em arquivo",
+   "descricao": "Arquivos de código-fonte contendo scripts ou funções (principal, locais, aninhadas, privadas).",
+   "necessidade": "Reutilização e organização de código.",
+   "entradas": "Arquivos de código (.m equivalente no formato compatível e extensão própria).",
+   "saidas": "Execução; valores de retorno múltiplos.",
+   "comportamento": "Funções com múltiplas entradas/saídas, nargin/nargout, varargin/varargout, funções locais, aninhadas com compartilhamento de escopo, scripts operando no workspace do chamador.",
+   "regras": "Nome do arquivo define a função principal; funções locais visíveis apenas no arquivo; precedência de resolução (variável > aninhada > local > privada > classe > caminho).",
+   "casos_especiais": "Recursão profunda; arquivo modificado em disco durante a sessão (recarregamento); script com função local no final.",
+   "erros": "Muitos/poucos argumentos; saída não atribuída; recursão máxima excedida.",
+   "aceitacao": [
+    "Função com 3 saídas retorna somente as pedidas",
+    "Edição do arquivo em disco é refletida na chamada seguinte",
+    "Limite de recursão gera erro identificável e configurável"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F001",
+    "F019"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Cache de AST por arquivo com invalidação por mtime/hash; tabela de resolução por escopo.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F003",
+   "area": "LNG",
+   "nome": "Tipos numéricos e lógicos fundamentais",
+   "descricao": "Ponto flutuante dupla/simples, inteiros com/sem sinal de 8–64 bits, lógico, caractere e números complexos.",
+   "necessidade": "Precisão e economia de memória adequadas ao problema.",
+   "entradas": "Literais, conversões de tipo.",
+   "saidas": "Arrays tipados.",
+   "comportamento": "Aritmética mista com regras de tipo dominante; inteiros saturam e arredondam; complexo automático em operações que exigem (sqrt(-1)).",
+   "regras": "Inteiro combinado com double resulta inteiro; operações entre inteiros de classes diferentes são erro; NaN/Inf seguem IEEE 754.",
+   "casos_especiais": "-0, NaN payload, intmin/intmax, eps, realmin denormais, conversão de NaN para inteiro (0).",
+   "erros": "Combinação inválida de classes; overflow tratado por saturação (sem erro).",
+   "aceitacao": [
+    "int8(127)+1 == 127",
+    "uint8(3.5) == 4",
+    "class(int16(1)*2.7) == 'int16'",
+    "sqrt(-4) == 2i"
+   ],
+   "complexidade": "A",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F004",
+   "area": "LNG",
+   "nome": "Arrays N-dimensionais e indexação",
+   "descricao": "Arrays de qualquer dimensão com indexação por subscrito, linear, lógica, 'end', dois-pontos, exclusão e crescimento automático.",
+   "necessidade": "Manipulação vetorizada de dados.",
+   "entradas": "Arrays, índices.",
+   "saidas": "Subarrays, arrays modificados.",
+   "comportamento": "Ordem column-major; atribuição fora dos limites expande com zeros; atribuição de [] remove elementos; dimensões singleton finais ignoradas.",
+   "regras": "Índices começam em 1; índice lógico deve ter tamanho compatível; 'end' resolve para o tamanho da dimensão indexada.",
+   "casos_especiais": "Arrays vazios com dimensões (0x3); indexação com mais dimensões que o array; colapso de dimensões finais.",
+   "erros": "Índice fora dos limites na leitura; índice não inteiro/negativo; dimensões incompatíveis na atribuição.",
+   "aceitacao": [
+    "A(end+1)=x cresce o vetor",
+    "A(:) retorna coluna",
+    "Remover linha com A(2,:)=[]",
+    "size(zeros(0,3)) == [0 3]"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F005",
+   "area": "LNG",
+   "nome": "Operadores matriciais, elemento a elemento e expansão implícita",
+   "descricao": "Operadores aritméticos, relacionais, lógicos (com curto-circuito), matriciais (*, /, \\, ^) e elemento a elemento (.*, ./, .^) com expansão implícita de dimensões singleton.",
+   "necessidade": "Expressão concisa de álgebra linear e cálculo vetorizado.",
+   "entradas": "Operandos arrays.",
+   "saidas": "Arrays resultantes.",
+   "comportamento": "Expansão implícita compatível; '\\' resolve sistema linear escolhendo método por estrutura da matriz; transposta e transposta conjugada.",
+   "regras": "Precedência de operadores documentada; && e || exigem escalares lógicos.",
+   "casos_especiais": "Expansão entre 1xN e Mx1; operações com vazio; matriz singular em '\\' gera aviso.",
+   "erros": "Dimensões incompatíveis; operandos não escalares em &&.",
+   "aceitacao": [
+    "[1 2 3]+[10;20] produz 2x3",
+    "A\\b resolve sistema com resíduo < 1e-12 em matriz bem condicionada",
+    "Aviso emitido para matriz singular"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F004",
+    "F040"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F006",
+   "area": "LNG",
+   "nome": "Controle de fluxo",
+   "descricao": "if/elseif/else, switch/case (inclusive cell de casos e strings), for (sobre colunas), while, break, continue, return, try/catch.",
+   "necessidade": "Lógica de programa.",
+   "entradas": "Código.",
+   "saidas": "Execução condicionada.",
+   "comportamento": "for itera sobre colunas da expressão; switch compara números e textos; try/catch captura exceção em objeto.",
+   "regras": "Condição de if com array é verdadeira somente se todos os elementos forem não-nulos e não-vazia.",
+   "casos_especiais": "for sobre matriz vazia; switch com cell de alternativas; modificação da variável do laço no corpo.",
+   "erros": "Uso de break fora de laço; catch sem identificador.",
+   "aceitacao": [
+    "for k=[1 2;3 4] itera 2 vezes com colunas",
+    "if [] é falso",
+    "switch 'abc' casa com {'x','abc'}"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F007",
+   "area": "LNG",
+   "nome": "Programação orientada a objetos",
+   "descricao": "Definição de classes com propriedades, métodos, eventos, enumerações, herança múltipla, classes de valor e de referência, atributos de acesso, validação de propriedades, métodos estáticos, sobrecarga de operadores e indexação, getters/setters, metaclasses.",
+   "necessidade": "Modelagem de domínio e encapsulamento.",
+   "entradas": "Arquivos de definição de classe; pastas de classe.",
+   "saidas": "Objetos, metadados de classe.",
+   "comportamento": "Semântica de cópia para classes de valor e referência compartilhada para classes de identidade; destrutores em classes de referência; listeners de eventos e propriedades observáveis.",
+   "regras": "Atributos Access/SetAccess/GetAccess/Hidden/Constant/Dependent/Abstract/Sealed; ordem de resolução de métodos; classes enumeradas.",
+   "casos_especiais": "Recarregar definição com instâncias existentes; herança diamante; redefinição de indexação (subsref/subsasgn equivalente).",
+   "erros": "Acesso negado; violação de validação; método abstrato não implementado.",
+   "aceitacao": [
+    "Classe de referência compartilha estado entre cópias",
+    "Validação de propriedade rejeita tipo inválido com mensagem identificável",
+    "Evento notifica listeners em ordem de registro",
+    "Metadados da classe consultáveis"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F002",
+    "F017"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Modelo de objetos próprio no runtime; tabela de despacho por classe; contagem de referência + coleta de ciclos para objetos de referência.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F008",
+   "area": "LNG",
+   "nome": "Validação de argumentos de função",
+   "descricao": "Bloco declarativo de argumentos com tamanho, classe, funções validadoras, valores padrão, argumentos nome-valor e repetidos.",
+   "necessidade": "Funções robustas com mensagens de erro claras.",
+   "entradas": "Declaração de argumentos.",
+   "saidas": "Argumentos convertidos/validados.",
+   "comportamento": "Conversão automática quando possível; erros apontam o argumento; suporte a nome-valor com nomes parciais desabilitados/habilitados conforme regra.",
+   "regras": "Validação ocorre antes do corpo; padrões avaliados em ordem.",
+   "casos_especiais": "Argumentos nome-valor derivados de propriedades de classe; validadores personalizados.",
+   "erros": "Tipo/tamanho incompatível; nome-valor desconhecido.",
+   "aceitacao": [
+    "Chamada f(x='a') com validador numérico falha antes do corpo",
+    "Valor padrão aplicado quando omitido",
+    "Mensagem identifica posição do argumento"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F002"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F009",
+   "area": "LNG",
+   "nome": "Arrays de células e estruturas",
+   "descricao": "Containers heterogêneos (cell) e registros com campos nomeados (struct), incluindo arrays de structs, campos dinâmicos, listas separadas por vírgula.",
+   "necessidade": "Agrupar dados heterogêneos.",
+   "entradas": "Valores quaisquer.",
+   "saidas": "Containers.",
+   "comportamento": "c{...} extrai conteúdo, c(...) extrai subcélula; s.(nome) acessa campo dinâmico; s(i).campo em arrays de struct produz lista separada por vírgula.",
+   "regras": "Arrays de struct exigem os mesmos campos; ordem de campos preservada.",
+   "casos_especiais": "Struct vazio com campos; cell aninhada profunda; deal com listas.",
+   "erros": "Campo inexistente; conteúdo de cell com chaves em contexto inválido.",
+   "aceitacao": [
+    "[s.a] concatena campos de array de struct",
+    "fieldnames preserva ordem",
+    "c{2:3} expande em múltiplas saídas"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F004"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F010",
+   "area": "LNG",
+   "nome": "Texto: arrays de caracteres e strings",
+   "descricao": "Tipo char e tipo string com funções de manipulação (concatenação, busca, substituição, divisão, junção, formatação, comparação, conversão numérica), padrões de texto e expressões regulares.",
+   "necessidade": "Processamento de texto.",
+   "entradas": "Textos, padrões.",
+   "saidas": "Textos, índices, tokens.",
+   "comportamento": "Strings são escalares de texto com operador +; funções aceitam char, string e cellstr; regexp com tokens nomeados, lookaround, modos.",
+   "regras": "Unicode completo; comparação sensível a maiúsculas por padrão.",
+   "casos_especiais": "String ausente (<missing>); texto vazio vs ausente; expressões regulares com retrocesso exponencial.",
+   "erros": "Padrão inválido; conversão numérica inválida resulta NaN.",
+   "aceitacao": [
+    "\"a\"+\"b\" == \"ab\"",
+    "regexp com tokens nomeados retorna struct",
+    "str2double('x') é NaN",
+    "split/join/replace funcionam com arrays de string"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "fancy-regex (MIT) para recursos de retrocesso; ICU4X ou unicode-* crates para normalização (licença a confirmar).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F011",
+   "area": "LNG",
+   "nome": "Formatação e exibição de valores",
+   "descricao": "Formatos de exibição (curto, longo, engenharia, racional, hexadecimal, espaçamento), sprintf/fprintf/num2str/disp/display, exibição personalizada de objetos.",
+   "necessidade": "Leitura legível de resultados.",
+   "entradas": "Valores, especificadores de formato.",
+   "saidas": "Texto formatado.",
+   "comportamento": "Especificadores estilo C reciclados sobre elementos; exibição de matrizes com fator comum de escala.",
+   "regras": "Formato é estado de sessão e preferência.",
+   "casos_especiais": "Inteiros grandes, complexos, NaN/Inf, arrays vazios, exibição truncada de arrays grandes.",
+   "erros": "Especificador inválido.",
+   "aceitacao": [
+    "sprintf('%d,',[1 2 3]) == '1,2,3,'",
+    "format long mostra 15 dígitos significativos para double",
+    "Exibição personalizável por método da classe"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F012",
+   "area": "LNG",
+   "nome": "Tratamento de erros e avisos",
+   "descricao": "Lançamento e captura de exceções com identificadores, pilha, causas, correções sugeridas; controle de avisos por identificador; erro/aviso com formatação; limpeza garantida (onCleanup).",
+   "necessidade": "Programas robustos e diagnosticáveis.",
+   "entradas": "Identificador, mensagem, estado.",
+   "saidas": "Exceções; avisos exibidos/suprimidos.",
+   "comportamento": "Avisos podem ser ligados/desligados/convertidos por id; último erro/aviso consultável; rethrow preserva pilha.",
+   "regras": "Identificadores 'componente:mensagem'.",
+   "casos_especiais": "Erro durante limpeza; avisos repetidos; exceções aninhadas (causes).",
+   "erros": "Identificador mal formado.",
+   "aceitacao": [
+    "warning('off',id) suprime apenas aquele aviso",
+    "MException tem stack com arquivo/linha",
+    "onCleanup executa ao sair do escopo mesmo em erro"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F002"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F013",
+   "area": "LNG",
+   "nome": "Workspaces, escopo e avaliação dinâmica",
+   "descricao": "Workspace base e de função, variáveis globais e persistentes, eval/evalin/assignin/feval, exist/which/clear/who/whos, inputname.",
+   "necessidade": "Controle de estado e metaprogramação.",
+   "entradas": "Nomes, expressões em texto.",
+   "saidas": "Valores, informação de variáveis.",
+   "comportamento": "Variáveis persistentes por função; globais compartilhadas por declaração; clear remove variáveis/funções/classes do cache.",
+   "regras": "exist retorna códigos de tipo; which resolve caminho e sobreposição.",
+   "casos_especiais": "eval com erro e catch; clear dentro de função; variáveis com nomes de funções (shadowing).",
+   "erros": "Nome inválido; workspace inexistente.",
+   "aceitacao": [
+    "Persistente mantém valor entre chamadas",
+    "clear all limpa persistentes",
+    "whos lista tamanho, classe e bytes"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F002"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F014",
+   "area": "LNG",
+   "nome": "Caminho de busca, pacotes e pastas especiais",
+   "descricao": "Caminho de busca de funções, pastas privadas, pastas de classe, namespaces (pastas de pacote), importação de nomes, pastas de recursos, startup/finish de sessão.",
+   "necessidade": "Organizar bibliotecas e evitar colisões de nomes.",
+   "entradas": "Diretórios, declarações import.",
+   "saidas": "Resolução de nomes.",
+   "comportamento": "Ordem de precedência configurável; caminho persistível; namespaces aninhados; import de pacote ou função específica.",
+   "regras": "Pasta atual precede caminho; pastas privadas visíveis só ao pai.",
+   "casos_especiais": "Duplicatas de nomes (shadowing com aviso); pasta removida em uso.",
+   "erros": "Pasta inexistente; nome ambíguo.",
+   "aceitacao": [
+    "addpath/rmpath/savepath alteram e persistem caminho",
+    "Função em pasta privada não visível externamente",
+    "import de namespace resolve nome curto"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F002"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F015",
+   "area": "LNG",
+   "nome": "Módulos e namespaces modernos",
+   "descricao": "Agrupamento de código em módulos com descritor, visibilidade e dependências.",
+   "necessidade": "Encapsulamento em escala de projeto.",
+   "entradas": "Pastas de módulo com descritor.",
+   "saidas": "Escopos de visibilidade.",
+   "comportamento": "Inferência: módulo expõe API pública e oculta implementação.",
+   "regras": "A investigar em documentação pública.",
+   "casos_especiais": "Compatibilidade com caminho tradicional.",
+   "erros": "Dependência circular.",
+   "aceitacao": [
+    "Função interna do módulo inacessível de fora",
+    "Descritor inválido gera erro claro"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F014"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": "Hipótese",
+   "fase": null
+  },
+  {
+   "id": "F016",
+   "area": "LNG",
+   "nome": "Funções anônimas, handles e funções de ordem superior",
+   "descricao": "Handles de função, funções anônimas com captura de valores, cellfun/arrayfun/structfun/func2str/str2func.",
+   "necessidade": "Programação funcional e callbacks.",
+   "entradas": "Expressões, handles.",
+   "saidas": "Handles, resultados agregados.",
+   "comportamento": "Anônimas capturam valores no momento da criação; 'UniformOutput' controla agregação; 'ErrorHandler' trata erros por elemento.",
+   "regras": "Saídas não uniformes exigem UniformOutput=false.",
+   "casos_especiais": "Handles para funções aninhadas; comparação de handles.",
+   "erros": "Saída não escalar com UniformOutput=true.",
+   "aceitacao": [
+    "Captura por valor: alterar variável depois não muda o handle",
+    "arrayfun com saída não escalar exige opção"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F002"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F017",
+   "area": "LNG",
+   "nome": "Eventos, listeners e referências fracas",
+   "descricao": "Mecanismo de publicação/assinatura entre objetos, propriedades observáveis, referências fracas.",
+   "necessidade": "Arquiteturas reativas.",
+   "entradas": "Objetos, nomes de evento, callbacks.",
+   "saidas": "Notificações.",
+   "comportamento": "Listener removido ao destruir; ordem estável.",
+   "regras": "Eventos declarados na classe.",
+   "casos_especiais": "Listener que destrói a fonte; recursão de eventos.",
+   "erros": "Evento inexistente.",
+   "aceitacao": [
+    "notify dispara todos os listeners",
+    "Listener desabilitado não executa"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F007"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F018",
+   "area": "LNG",
+   "nome": "Interrupção, pausa e temporizadores",
+   "descricao": "Interrupção de execução, pause com/sem tempo, input/keyboard, objetos de temporizador com modos de execução (único, periódico, espaçamento fixo) e fila.",
+   "necessidade": "Execução agendada e controle interativo.",
+   "entradas": "Tempo, callbacks.",
+   "saidas": "Execução diferida.",
+   "comportamento": "Temporizadores rodam no laço de eventos do runtime; callbacks não interrompem código em execução no meio de instrução.",
+   "regras": "Período mínimo de 1 ms; modos de execução distintos.",
+   "casos_especiais": "Callback mais longo que o período; erro no callback.",
+   "erros": "Período inválido.",
+   "aceitacao": [
+    "Timer periódico executa N vezes com desvio <10ms",
+    "Erro no callback chama ErrorFcn"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F019",
+   "area": "LNG",
+   "nome": "Desempenho de execução (compilação JIT)",
+   "descricao": "Execução acelerada de código interpretado (compilação just-in-time) transparente ao usuário.",
+   "necessidade": "Desempenho próximo a código compilado em laços.",
+   "entradas": "Código.",
+   "saidas": "Mesma semântica, menor tempo.",
+   "comportamento": "Motor de execução com otimização; a meta é de desempenho, sem técnica prescrita.",
+   "regras": "Semântica idêntica ao modo interpretado.",
+   "casos_especiais": "Código dinâmico (eval) não compilável — fallback.",
+   "erros": "Nenhum visível ao usuário.",
+   "aceitacao": [
+    "Laço escalar de 1e7 iterações < 5x de C equivalente (meta)",
+    "Resultados idênticos entre JIT e interpretador em toda a suíte"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "pat",
+   "restricoes_tecnicas": "",
+   "estrategia": "Cranelift (Apache-2.0 WITH LLVM-exception, requer aprovação) ou bytecode otimizado próprio.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F020",
+   "area": "LNG",
+   "nome": "Operações de conjuntos, ordenação, busca e bits",
+   "descricao": "sort/sortrows/unique/union/intersect/setdiff/ismember/find/any/all/cumsum/bitand/bitor/bitshift etc.",
+   "necessidade": "Manipulação de dados básica.",
+   "entradas": "Arrays.",
+   "saidas": "Arrays e índices.",
+   "comportamento": "Estabilidade de ordenação; ordem de saída 'sorted'/'stable'; NaN tratados como maiores.",
+   "regras": "Saídas de índice opcionais.",
+   "casos_especiais": "Tipos mistos; strings; NaN em unique (cada NaN distinto).",
+   "erros": "Tipos incompatíveis.",
+   "aceitacao": [
+    "unique([3 1 NaN NaN]) mantém 2 NaN",
+    "sort estável",
+    "ismember retorna índices"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F004"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F021",
+   "area": "DAT",
+   "nome": "Datas e horas (datetime)",
+   "descricao": "Pontos no tempo com fuso horário, formatos de exibição, aritmética, componentes, conversão de/para texto e números.",
+   "necessidade": "Análise temporal correta.",
+   "entradas": "Textos, números, componentes.",
+   "saidas": "Arrays de datetime.",
+   "comportamento": "Fusos IANA e horário de verão; formatos baseados em padrões Unicode; NaT para ausente.",
+   "regras": "Comparação entre zonas diferentes converte para UTC.",
+   "casos_especiais": "Horário ambíguo/inexistente na transição DST; segundos bissextos (opcional 'UTCLeapSeconds').",
+   "erros": "Formato inválido; zona desconhecida.",
+   "aceitacao": [
+    "Soma de 1 dia atravessando DST mantém hora local",
+    "Leitura de texto com formato explícito",
+    "NaT propagado em operações"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F022",
+   "area": "DAT",
+   "nome": "Durações e durações de calendário",
+   "descricao": "Intervalos fixos (duration) e de calendário (meses, anos variáveis).",
+   "necessidade": "Aritmética de tempo.",
+   "entradas": "Números, textos.",
+   "saidas": "Arrays de duração.",
+   "comportamento": "Duração de calendário depende da data base; formatação dd:hh:mm:ss.",
+   "regras": "Soma de calendarDuration a datetime respeita fim de mês.",
+   "casos_especiais": "31-jan + 1 mês; durações negativas.",
+   "erros": "Formato inválido.",
+   "aceitacao": [
+    "datetime(2024,1,31)+calmonths(1) == 29-fev-2024",
+    "duração exibida no formato escolhido"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F021"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F023",
+   "area": "DAT",
+   "nome": "Dados categóricos",
+   "descricao": "Arrays de categorias com conjunto de categorias, ordenação opcional, contagem, mesclagem, renomeação.",
+   "necessidade": "Variáveis qualitativas eficientes.",
+   "entradas": "Textos/números.",
+   "saidas": "Arrays categóricos.",
+   "comportamento": "Categorias ordinais permitem comparação relacional; <undefined> para ausentes.",
+   "regras": "Categorias protegidas impedem novos valores.",
+   "casos_especiais": "Combinação de categóricos com conjuntos diferentes.",
+   "erros": "Valor fora das categorias protegidas.",
+   "aceitacao": [
+    "countcats correto",
+    "Comparação ordinal",
+    "Ausente exibido como <undefined>"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F009"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F024",
+   "area": "DAT",
+   "nome": "Tabelas e tabelas temporais",
+   "descricao": "Dados tabulares heterogêneos com nomes de variáveis/linhas, metadados, junções, agrupamento/agregação, empilhamento, sincronização e retemporização de séries temporais.",
+   "necessidade": "Análise de dados estruturados.",
+   "entradas": "Arrays, arquivos.",
+   "saidas": "Tabelas.",
+   "comportamento": "Indexação por nome e posição; grouping (groupsummary, rowfun, varfun); joins (inner/outer); retime/synchronize com métodos de agregação/interpolação.",
+   "regras": "Variáveis de mesma altura; nomes únicos válidos.",
+   "casos_especiais": "Variáveis multicoluna; tabelas aninhadas; tempos duplicados/não ordenados.",
+   "erros": "Nome duplicado; altura incompatível.",
+   "aceitacao": [
+    "join interno por chave",
+    "retime para dados horários com média",
+    "groupsummary por categoria",
+    "T.Var acesso por nome"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F021",
+    "F023"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F025",
+   "area": "DAT",
+   "nome": "Dicionários e mapas",
+   "descricao": "Containers chave-valor tipados (dictionary) e mapas legados (containers.Map).",
+   "necessidade": "Busca associativa eficiente.",
+   "entradas": "Chaves e valores.",
+   "saidas": "Container.",
+   "comportamento": "Chaves tipadas com hash; valores ausentes geram erro ou padrão; Map de referência vs dicionário de valor.",
+   "regras": "Tipo de chave fixo após configuração.",
+   "casos_especiais": "Chaves NaN; chaves string vs char.",
+   "erros": "Chave inexistente.",
+   "aceitacao": [
+    "Inserção/busca O(1) amortizado",
+    "Semântica de valor do dicionário vs referência do mapa"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F009"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F026",
+   "area": "DAT",
+   "nome": "Valores ausentes padronizados",
+   "descricao": "Valor 'ausente' genérico conversível em NaN/NaT/<missing>/<undefined>; funções ismissing/fillmissing/rmmissing/standardizeMissing.",
+   "necessidade": "Tratamento uniforme de dados faltantes.",
+   "entradas": "Arrays/tabelas.",
+   "saidas": "Arrays sem ausentes ou indicadores.",
+   "comportamento": "fillmissing com métodos constante/anterior/próximo/linear/spline/movmean.",
+   "regras": "Cada tipo tem representação própria de ausente.",
+   "casos_especiais": "Tabelas com tipos mistos.",
+   "erros": "Método inválido.",
+   "aceitacao": [
+    "fillmissing linear em vetor com NaN",
+    "rmmissing remove linhas de tabela com ausentes"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F024"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F040",
+   "area": "MAT",
+   "nome": "Álgebra linear densa",
+   "descricao": "Solução de sistemas, inversa, determinante, decomposições LU/QR/Cholesky/LDL/Schur/Hessenberg/SVD/autovalores (padrão e generalizado), funções de matriz (expm, logm, sqrtm, funm), normas, condição, posto, pseudo-inversa, espaços nulo/coluna.",
+   "necessidade": "Base de computação científica.",
+   "entradas": "Matrizes.",
+   "saidas": "Fatores, soluções, escalares.",
+   "comportamento": "Escolha automática de algoritmo por estrutura (triangular, simétrica, banda); avisos de mal condicionamento.",
+   "regras": "Resultados conforme precisão IEEE; ordem dos autovalores não garantida salvo opção.",
+   "casos_especiais": "Matrizes vazias, singulares, complexas, grandes (multithread).",
+   "erros": "Matriz não quadrada onde exigido; NaN/Inf.",
+   "aceitacao": [
+    "Resíduo relativo < 1e-12 em suíte de matrizes de teste",
+    "svd de matriz 1000x1000 em tempo comparável a LAPACK otimizado",
+    "Aviso de singularidade"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F005"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "faer (MIT) e/ou OpenBLAS+LAPACK (BSD-3-Clause) atrás de trait de backend.",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F041",
+   "area": "MAT",
+   "nome": "Matrizes esparsas e solvers iterativos",
+   "descricao": "Armazenamento esparso, operações, ordenações de redução de preenchimento, fatorações esparsas, solvers iterativos (pcg, gmres, bicgstab, minres, lsqr, ...), autovalores/valores singulares parciais, precondicionadores incompletos.",
+   "necessidade": "Problemas grandes de engenharia.",
+   "entradas": "Matrizes esparsas.",
+   "saidas": "Soluções, fatores.",
+   "comportamento": "'\\' esparso escolhe solver por estrutura; ordenações AMD/COLAMD; ILU/IC.",
+   "regras": "Esparsidade preservada em operações quando possível.",
+   "casos_especiais": "Matriz com zero explícito; muito grande; mal condicionada.",
+   "erros": "Não convergência (flag + aviso).",
+   "aceitacao": [
+    "pcg converge em matriz de Poisson 2D",
+    "eigs retorna k maiores autovalores",
+    "Memória proporcional a nnz"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F040"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "Partes do SuiteSparse são GPL/LGPL — NÃO reutilizar; usar faer sparse (MIT), AMD/COLAMD (BSD-3-Clause), arpack-ng (BSD-3-Clause) ou implementação própria.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F042",
+   "area": "MAT",
+   "nome": "Funções elementares e especiais",
+   "descricao": "Trigonométricas (rad/graus), exponenciais, logaritmos, arredondamento, módulo, gamma/beta/erf/expint/Bessel/Airy/elípticas/Legendre, primos, fatoração, mdc/mmc, combinatória.",
+   "necessidade": "Cálculo científico.",
+   "entradas": "Arrays numéricos.",
+   "saidas": "Arrays.",
+   "comportamento": "Saídas complexas quando domínio exige; precisão próxima a 1 ulp.",
+   "regras": "Funções de grau (sind) exatas em múltiplos de 90.",
+   "casos_especiais": "Argumentos extremos; complexos; inteiros grandes.",
+   "erros": "Domínio inválido gera NaN/complexo conforme regra.",
+   "aceitacao": [
+    "sind(180)==0 exato",
+    "gamma em teste de referência com erro relativo < 1e-14",
+    "besselj ordens fracionárias"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F043",
+   "area": "MAT",
+   "nome": "Estatística descritiva e pré-processamento de dados",
+   "descricao": "Média, mediana, moda, desvio, variância, quantis, histogramas/contagens, somas e produtos cumulativos, estatísticas móveis, normalização, reescala, detecção/remoção/preenchimento de outliers, suavização, detecção de mudanças e extremos locais.",
+   "necessidade": "Exploração e limpeza de dados.",
+   "entradas": "Arrays/tabelas; dimensão; flags NaN.",
+   "saidas": "Estatísticas.",
+   "comportamento": "Opções 'omitnan'/'includenan', 'all', vecdim; janelas móveis com tratamento de bordas.",
+   "regras": "Dimensão padrão é a primeira não singleton.",
+   "casos_especiais": "Entrada vazia (mean de vazio é NaN); tipos inteiros.",
+   "erros": "Opção inválida.",
+   "aceitacao": [
+    "mean(x,'omitnan') ignora NaN",
+    "movmean com janela par/ímpar",
+    "rmoutliers método mediana"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F004"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F044",
+   "area": "MAT",
+   "nome": "Interpolação e ajuste de curvas básico",
+   "descricao": "Interpolação 1-D/2-D/3-D/N-D (linear, nearest, cúbica, spline, pchip, makima), interpolantes em grade e dispersos, splines, extrapolação.",
+   "necessidade": "Reamostragem e aproximação.",
+   "entradas": "Pontos, valores, consultas.",
+   "saidas": "Valores interpolados, objetos interpolantes.",
+   "comportamento": "Objetos interpolantes reutilizáveis; métodos de extrapolação configuráveis.",
+   "regras": "Pontos de grade monotônicos.",
+   "casos_especiais": "Pontos duplicados; consulta fora do domínio (NaN padrão).",
+   "erros": "Grade não monotônica.",
+   "aceitacao": [
+    "interp1 spline reproduz polinômio cúbico",
+    "scattered interpolant com Delaunay"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F047"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F045",
+   "area": "MAT",
+   "nome": "Polinômios",
+   "descricao": "Avaliação, raízes, ajuste por mínimos quadrados, convolução/deconvolução, derivação/integração, frações parciais.",
+   "necessidade": "Modelagem algébrica.",
+   "entradas": "Coeficientes.",
+   "saidas": "Coeficientes, raízes.",
+   "comportamento": "Coeficientes em ordem decrescente; polyfit com escalonamento opcional (S, mu).",
+   "regras": "roots via autovalores da companheira.",
+   "casos_especiais": "Grau alto mal condicionado (aviso).",
+   "erros": "Dados insuficientes.",
+   "aceitacao": [
+    "roots([1 -3 2]) == [2;1]",
+    "polyfit grau n em n+1 pontos interpola"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F040"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "IMPLEMENTADA",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F046",
+   "area": "MAT",
+   "nome": "Transformadas de Fourier e filtragem básica",
+   "descricao": "FFT/IFFT 1-D/2-D/N-D com qualquer tamanho, deslocamento, filtragem IIR/FIR direta (filter), convolução 1-D/2-D/N-D, correlação básica.",
+   "necessidade": "Análise espectral e processamento de sinais elementar.",
+   "entradas": "Arrays; tamanho; dimensão.",
+   "saidas": "Espectros, sinais filtrados.",
+   "comportamento": "Tamanhos arbitrários (não só potências de 2); 'symmetric' em ifft; planejamento de desempenho opcional.",
+   "regras": "Normalização sem fator na FFT direta.",
+   "casos_especiais": "Tamanho primo grande; entradas reais vs complexas.",
+   "erros": "Dimensão inválida.",
+   "aceitacao": [
+    "ifft(fft(x)) ≈ x (1e-12)",
+    "fft de tamanho primo 10007 correta",
+    "filter equivale a equação de diferenças"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F040"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "FFTW é GPL — NÃO usar; rustfft (MIT/Apache-2.0).",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F047",
+   "area": "MAT",
+   "nome": "Geometria computacional",
+   "descricao": "Triangulação de Delaunay 2-D/3-D, fecho convexo, diagramas de Voronoi, objetos de triangulação, polígonos (polyshape: booleanas, área, buffer), alpha shapes, ponto-em-polígono.",
+   "necessidade": "Malhas e análise espacial.",
+   "entradas": "Pontos, polígonos.",
+   "saidas": "Triangulações, polígonos.",
+   "comportamento": "Consultas de vizinhança e localização; operações booleanas robustas.",
+   "regras": "Pontos colineares/coplanares tratados com aviso.",
+   "casos_especiais": "Pontos duplicados; precisão finita.",
+   "erros": "Pontos insuficientes.",
+   "aceitacao": [
+    "delaunay de 1e5 pontos aleatórios satisfaz critério de círculo vazio",
+    "polyshape union/intersect com área correta"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F040"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "Qhull tem licença própria (revisar); GPC proíbe uso comercial — NÃO usar. Alternativas: spade (MIT/Apache-2.0), i_overlay/geo (MIT/Apache-2.0) ou implementação própria.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F048",
+   "area": "MAT",
+   "nome": "Integração numérica e quadratura",
+   "descricao": "Integral adaptativa 1-D/2-D/3-D (incl. limites infinitos e singularidades), regra trapezoidal, cumulativa, Gauss-Kronrod.",
+   "necessidade": "Cálculo de áreas/volumes.",
+   "entradas": "Funções/handles, limites, tolerâncias.",
+   "saidas": "Valores integrais, estimativas de erro.",
+   "comportamento": "Tolerâncias absoluta/relativa; avaliação vetorizada da função.",
+   "regras": "Limites infinitos via transformação.",
+   "casos_especiais": "Singularidade nos extremos; função não vetorizada.",
+   "erros": "Tolerância não alcançada (aviso).",
+   "aceitacao": [
+    "integral(@(x) exp(-x.^2),-Inf,Inf) ≈ sqrt(pi)",
+    "trapz em dados amostrados"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F016"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F049",
+   "area": "MAT",
+   "nome": "Equações diferenciais ordinárias e algébrico-diferenciais",
+   "descricao": "Solvers explícitos/implícitos de passo variável (Runge-Kutta 4/5 e 2/3, Adams, BDF/NDF, Rosenbrock, trapezoidal, TR-BDF2), problemas implícitos totalmente, DAE de índice 1, eventos, matriz de massa, Jacobiano/esparsidade, saída densa, objeto de problema EDO.",
+   "necessidade": "Simulação de sistemas dinâmicos.",
+   "entradas": "Função derivada, intervalo, condição inicial, opções.",
+   "saidas": "Tempo e estado; eventos; solução avaliável.",
+   "comportamento": "Controle de passo por tolerâncias; detecção de eventos com direção e terminal; refino de saída.",
+   "regras": "Interface de opções compatível com conjunto de parâmetros nomeados.",
+   "casos_especiais": "Problemas rígidos; descontinuidades; eventos simultâneos.",
+   "erros": "Falha de tolerância mínima (aviso + resultado parcial).",
+   "aceitacao": [
+    "Oscilador de Van der Pol rígido resolvido por BDF",
+    "Evento terminal para no instante correto ±tol",
+    "Comparação com solução analítica em problemas de referência"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F040",
+    "F016"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "Implementação própria de métodos publicados + SUNDIALS (BSD-3-Clause) para BDF/IDA.",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F050",
+   "area": "MAT",
+   "nome": "Problemas de contorno, retardo e EDP 1-D",
+   "descricao": "Solvers de valor de contorno (colocação), equações com retardo (constante e variável), EDPs parabólicas/elípticas 1-D.",
+   "necessidade": "Modelos físicos especializados.",
+   "entradas": "Funções, malha, condições.",
+   "saidas": "Soluções.",
+   "comportamento": "Continuação e refino de malha; históricos de retardo.",
+   "regras": "Malhas monotônicas.",
+   "casos_especiais": "Retardos que se anulam; malha inicial ruim.",
+   "erros": "Não convergência.",
+   "aceitacao": [
+    "bvp de referência com erro < tol",
+    "dde23 em problema publicado"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F049"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F051",
+   "area": "MAT",
+   "nome": "Otimização básica e raízes",
+   "descricao": "Minimização escalar limitada, Nelder-Mead sem restrições, zero de função escalar, mínimos quadrados não negativos, estrutura de opções de otimização, funções de saída/plotagem de iteração.",
+   "necessidade": "Ajustes e calibrações simples.",
+   "entradas": "Função objetivo, chute inicial, opções.",
+   "saidas": "Solução, valor, flag de saída, saída de diagnóstico.",
+   "comportamento": "Critérios de parada por tolerância/iterações; exibição iterativa.",
+   "regras": "Flag de saída padronizada.",
+   "casos_especiais": "Função descontínua; sem mudança de sinal em fzero.",
+   "erros": "Intervalo inválido.",
+   "aceitacao": [
+    "fminsearch na Rosenbrock converge",
+    "fzero encontra raiz com bracket",
+    "Funções de plotagem de iteração chamadas a cada passo"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F016"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F052",
+   "area": "MAT",
+   "nome": "Grafos e redes",
+   "descricao": "Grafos direcionados/não direcionados com nós/arestas tabulares, caminhos mínimos, BFS/DFS, componentes conexos, árvore geradora, fluxo máximo, centralidade, ordenação topológica, isomorfismo, plotagem com layouts.",
+   "necessidade": "Análise de redes.",
+   "entradas": "Listas de arestas, matrizes de adjacência.",
+   "saidas": "Objetos de grafo, resultados de algoritmos.",
+   "comportamento": "Pesos; multigrafos; propriedades de nós/arestas em tabelas.",
+   "regras": "Nós nomeados ou numerados.",
+   "casos_especiais": "Grafo vazio; laços; pesos negativos (Bellman-Ford).",
+   "erros": "Nó inexistente.",
+   "aceitacao": [
+    "shortestpath Dijkstra correto",
+    "maxflow em rede de teste",
+    "plot com layout force"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F024"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "petgraph (MIT/Apache-2.0) + layouts próprios.",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F053",
+   "area": "MAT",
+   "nome": "Números aleatórios",
+   "descricao": "Geradores configuráveis (Mersenne Twister, SIMD-MT, multiplicative lagged Fibonacci, Philox, Threefry, combined recursive), sementes, estados, fluxos e subfluxos, distribuições uniforme/normal/inteira, permutações.",
+   "necessidade": "Simulações reprodutíveis.",
+   "entradas": "Semente, gerador, dimensões.",
+   "saidas": "Arrays aleatórios; estado.",
+   "comportamento": "Reprodutibilidade por semente; fluxos independentes para paralelismo.",
+   "regras": "Estado salvável e restaurável.",
+   "casos_especiais": "Reprodução bit a bit de sequências de outros produtos: NÃO exigida (requisito: algoritmos padrão publicados).",
+   "erros": "Gerador desconhecido.",
+   "aceitacao": [
+    "rng(42) reprodutível na mesma versão",
+    "Testes estatísticos (TestU01 SmallCrush) aprovados",
+    "Subfluxos não sobrepostos"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F054",
+   "area": "MAT",
+   "nome": "Precisão estendida e aritmética especial",
+   "descricao": "Funções de precisão e de representação (eps, flintmax, realmax), aritmética inteira (idivide), conversões de base/binário/hexadecimal, aritmética de precisão estendida interna.",
+   "necessidade": "Controle numérico fino.",
+   "entradas": "Valores.",
+   "saidas": "Valores.",
+   "comportamento": "Uso interno de bibliotecas de precisão múltipla (sem GMP/MPFR, que são LGPL).",
+   "regras": "—",
+   "casos_especiais": "Valores no limite.",
+   "erros": "—",
+   "aceitacao": [
+    "dec2bin/hex2dec ida-e-volta",
+    "flintmax correto"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "GMP/MPFR são LGPL — NÃO usar; usar rug? (LGPL) NÃO; usar dashu (MIT/Apache-2.0) ou implementação própria.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "EM DESENVOLVIMENTO",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F055",
+   "area": "MAT",
+   "nome": "Funções de data e tempo legadas",
+   "descricao": "Funções numéricas de datas (números seriais de data, conversão de texto, calendário, cronômetro tic/toc, clock, cputime).",
+   "necessidade": "Compatibilidade com código existente.",
+   "entradas": "Números seriais/textos.",
+   "saidas": "Números/textos.",
+   "comportamento": "Número serial de data com época própria documentada publicamente.",
+   "regras": "—",
+   "casos_especiais": "Anos bissextos; fuso local.",
+   "erros": "Formato inválido.",
+   "aceitacao": [
+    "tic/toc mede intervalo com resolução < 1µs",
+    "Conversão serial↔texto"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F021"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F060",
+   "area": "GRF",
+   "nome": "Sistema de objetos gráficos",
+   "descricao": "Hierarquia de objetos (raiz, figura, eixos, primitivas, grupos, transformações) com propriedades consultáveis/alteráveis, valores padrão hierárquicos, callbacks, busca de objetos, ciclo de vida.",
+   "necessidade": "Personalização total de visualizações.",
+   "entradas": "Chamadas de criação; pares propriedade-valor.",
+   "saidas": "Handles de objetos.",
+   "comportamento": "Notação de ponto e get/set; padrões herdados por nível; handles inválidos após exclusão.",
+   "regras": "Ordem de filhos determina empilhamento.",
+   "casos_especiais": "Muitos objetos (1e5); exclusão durante callback.",
+   "erros": "Propriedade inexistente/valor inválido.",
+   "aceitacao": [
+    "set/get e notação de ponto equivalentes",
+    "Padrão definido na raiz afeta novas figuras",
+    "findobj por propriedade"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F007"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Grafo de cena próprio no runtime; renderização em processo separado (wgpu) com protocolo de diferenças.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F061",
+   "area": "GRF",
+   "nome": "Gráficos 2-D",
+   "descricao": "Linhas, dispersão, barras (agrupadas/empilhadas/horizontais), área, escada, haste, barras de erro, histograma (1-D/2-D), pizza/rosca, polares, escalas log, eixos duplos, preenchimentos.",
+   "necessidade": "Visualização de dados.",
+   "entradas": "Vetores/matrizes, estilos.",
+   "saidas": "Figuras.",
+   "comportamento": "Ciclo automático de cores e estilos; limites automáticos; 'hold' para sobreposição.",
+   "regras": "Especificadores de linha curtos (cor/marcador/estilo).",
+   "casos_especiais": "NaN cria lacunas; datetime/duration/categorical nos eixos.",
+   "erros": "Dimensões incompatíveis.",
+   "aceitacao": [
+    "plot com NaN gera lacuna",
+    "eixo datetime formatado",
+    "bar empilhado soma correta"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F062",
+   "area": "GRF",
+   "nome": "Gráficos 3-D, superfícies e volumes",
+   "descricao": "Linhas 3-D, superfícies/malhas, contornos 2-D/3-D, campos vetoriais, fatias de volume, isossuperfícies, streamlines, patches, iluminação, materiais, câmera, transparência.",
+   "necessidade": "Visualização científica.",
+   "entradas": "Grades, volumes.",
+   "saidas": "Figuras 3-D.",
+   "comportamento": "Rotação interativa; projeção ortográfica/perspectiva; colormaps em dados.",
+   "regras": "—",
+   "casos_especiais": "Grades irregulares; NaN em superfícies; transparência ordenada.",
+   "erros": "Tamanhos incompatíveis.",
+   "aceitacao": [
+    "surf com colormap e iluminação",
+    "isosurface correto em volume de teste",
+    "Rotação de câmera interativa a ≥30 fps em 1e6 triângulos (meta)"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F063",
+   "area": "GRF",
+   "nome": "Gráficos especializados de alto nível",
+   "descricao": "Mapas de calor, coordenadas paralelas, gráficos empilhados, enxame, bolhas, caixas, dispersão em matriz, nuvem de palavras básica, gráficos geográficos com mapas base (online).",
+   "necessidade": "Visualização pronta para análise.",
+   "entradas": "Tabelas/arrays.",
+   "saidas": "Gráficos.",
+   "comportamento": "Objetos de gráfico com propriedades próprias (não primitivas).",
+   "regras": "Mapas base exigem serviço de tiles.",
+   "casos_especiais": "Dados ausentes.",
+   "erros": "Variável inexistente.",
+   "aceitacao": [
+    "heatmap a partir de tabela agrega contagens",
+    "boxchart com grupos"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F061"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": true,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F064",
+   "area": "GRF",
+   "nome": "Anotações, legendas, rótulos e texto matemático",
+   "descricao": "Títulos, rótulos, legendas, barras de cor, texto, setas, formas, interpretadores TeX/LaTeX para fórmulas.",
+   "necessidade": "Comunicação clara de resultados.",
+   "entradas": "Textos.",
+   "saidas": "Objetos de texto.",
+   "comportamento": "Interpretador LaTeX com subconjunto matemático; legenda automática.",
+   "regras": "—",
+   "casos_especiais": "Unicode; fórmulas longas.",
+   "erros": "LaTeX inválido (aviso, texto bruto).",
+   "aceitacao": [
+    "Legenda lista séries visíveis",
+    "LaTeX \\frac renderizado"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "KaTeX (MIT) ou renderizador próprio de subconjunto TeX.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F065",
+   "area": "GRF",
+   "nome": "Mapas de cores e estilos",
+   "descricao": "Mapas de cores padrão e personalizados (incl. perceptuais), limites de cor, temas claro/escuro para gráficos, ordem de cores.",
+   "necessidade": "Visualização acessível.",
+   "entradas": "Matrizes Nx3.",
+   "saidas": "Estado de cor.",
+   "comportamento": "Mapas próprios do projeto; TURBO (Apache-2.0) permitido com atribuição.",
+   "regras": "Nomes de mapas próprios — não copiar paletas proprietárias do original.",
+   "casos_especiais": "Mapas com poucos níveis.",
+   "erros": "Formato inválido.",
+   "aceitacao": [
+    "Tema escuro altera cores padrão de figura",
+    "colormap personalizado aplicado"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "pat",
+   "restricoes_tecnicas": "Paletas padrão do original podem ser elementos distintivos — criar paletas próprias.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F066",
+   "area": "GRF",
+   "nome": "Layouts de múltiplos gráficos",
+   "descricao": "Subdivisão de figura em grades, layouts em mosaico com espaçamento e títulos compartilhados, eixos ligados.",
+   "necessidade": "Painéis comparativos.",
+   "entradas": "Dimensões de grade.",
+   "saidas": "Eixos posicionados.",
+   "comportamento": "Redimensionamento responsivo; eixos ligados sincronizam limites.",
+   "regras": "—",
+   "casos_especiais": "Mosaicos aninhados; spans.",
+   "erros": "Índice fora da grade.",
+   "aceitacao": [
+    "Layout 2x3 com título compartilhado",
+    "linkaxes sincroniza zoom"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F067",
+   "area": "GRF",
+   "nome": "Interação com gráficos",
+   "descricao": "Zoom, pan, rotação, dicas de dados, escovação e ligação de dados, barra de ferramentas de eixos, callbacks de mouse/teclado.",
+   "necessidade": "Exploração visual.",
+   "entradas": "Eventos de usuário.",
+   "saidas": "Estado de visão; seleções.",
+   "comportamento": "Dicas personalizáveis; escovação marca dados em variáveis ligadas.",
+   "regras": "—",
+   "casos_especiais": "Gráficos com 1e6 pontos.",
+   "erros": "—",
+   "aceitacao": [
+    "Zoom por roda do mouse",
+    "Dica de dados exibe valores",
+    "Escovação propaga para gráficos ligados"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F068",
+   "area": "GRF",
+   "nome": "Animação e captura de quadros",
+   "descricao": "Atualização de gráficos em laço, linhas animadas, captura de quadros, reprodução de filmes, exportação para vídeo/GIF.",
+   "necessidade": "Visualização dinâmica.",
+   "entradas": "Atualizações de propriedades.",
+   "saidas": "Quadros, arquivos.",
+   "comportamento": "drawnow com limitação de taxa ('limitrate').",
+   "regras": "—",
+   "casos_especiais": "Animação com 1e4 quadros.",
+   "erros": "—",
+   "aceitacao": [
+    "drawnow limitrate não excede 20 fps",
+    "getframe retorna imagem RGB"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F060",
+    "F088"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F069",
+   "area": "GRF",
+   "nome": "Exportação e impressão de figuras",
+   "descricao": "Salvar/exportar figuras e eixos em PNG, JPEG, TIFF, PDF vetorial, EPS, SVG, com resolução, cor de fundo, recorte; impressão; copiar para área de transferência; formato de figura editável próprio.",
+   "necessidade": "Relatórios e publicações.",
+   "entradas": "Figura, formato, opções.",
+   "saidas": "Arquivos.",
+   "comportamento": "Vetorial preserva texto; raster em DPI escolhido.",
+   "regras": "—",
+   "casos_especiais": "Figuras com transparência em vetor; fontes ausentes.",
+   "erros": "Formato não suportado.",
+   "aceitacao": [
+    "PDF vetorial contém texto selecionável",
+    "PNG 300 dpi com dimensões corretas",
+    "Figura salva e recarregada idêntica"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "tiny-skia (BSD-3-Clause), pdf-writer (MIT/Apache-2.0), svg próprio.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F070",
+   "area": "GRF",
+   "nome": "Exibição de imagens",
+   "descricao": "Exibição de matrizes como imagens (indexada, intensidade, RGB), escala de cores, eixos de imagem.",
+   "necessidade": "Visualização de dados de imagem.",
+   "entradas": "Matrizes.",
+   "saidas": "Figuras.",
+   "comportamento": "Imagens grandes com reamostragem; proporção de pixel.",
+   "regras": "—",
+   "casos_especiais": "Imagens 16 bits; com alfa.",
+   "erros": "—",
+   "aceitacao": [
+    "imagesc escala automática",
+    "RGB uint8 exibido sem conversão de cor"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F075",
+   "area": "APP",
+   "nome": "Componentes de interface programáticos",
+   "descricao": "Janelas de aplicativo com componentes (botões, campos, listas, tabelas, árvores, abas, painéis, layouts em grade, menus, barras de ferramentas, sliders, knobs, medidores, lâmpadas, seletores de data, HTML embutido, eixos), callbacks, estilos.",
+   "necessidade": "Ferramentas interativas sem programação web.",
+   "entradas": "Chamadas de criação e propriedades.",
+   "saidas": "Janelas interativas.",
+   "comportamento": "Callbacks com objeto de evento; layout responsivo em grade.",
+   "regras": "—",
+   "casos_especiais": "Muitos componentes; callbacks lentos (interrupção/fila).",
+   "erros": "Propriedade inválida.",
+   "aceitacao": [
+    "Aplicativo com 50 componentes abre < 1 s",
+    "Callback de botão recebe evento",
+    "Tabela editável sincroniza dados"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F060"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F076",
+   "area": "APP",
+   "nome": "Editor visual de aplicativos",
+   "descricao": "Ambiente de projeto visual com paleta de componentes, canvas, alinhamento, inspetor de propriedades, vista de código com regiões geradas/editáveis, gerenciamento de callbacks, executar/depurar, layouts responsivos.",
+   "necessidade": "Construção rápida de apps.",
+   "entradas": "Interações de arrastar/soltar.",
+   "saidas": "Arquivo de app (formato próprio) com código e layout.",
+   "comportamento": "Código gerado e código do usuário separados; renomeação propaga.",
+   "regras": "Formato de arquivo próprio do projeto.",
+   "casos_especiais": "Conversão de apps legados.",
+   "erros": "Arquivo corrompido.",
+   "aceitacao": [
+    "Criar app com botão e callback sem escrever layout manualmente",
+    "Reabrir preserva código do usuário"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F075",
+    "F101"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F077",
+   "area": "APP",
+   "nome": "Interfaces legadas baseadas em figura",
+   "descricao": "Controles de interface em figuras tradicionais, editor de layout legado e conversão para o novo modelo.",
+   "necessidade": "Compatibilidade com aplicações antigas.",
+   "entradas": "Arquivos de layout legado.",
+   "saidas": "Figuras com controles.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "uicontrol cria botão funcional"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F075"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F078",
+   "area": "APP",
+   "nome": "Diálogos padrão",
+   "descricao": "Seleção de arquivo/pasta, mensagens, perguntas, entrada de texto, lista, progresso, cor, fonte; diálogos dentro de app.",
+   "necessidade": "Interação simples com usuário.",
+   "entradas": "Opções.",
+   "saidas": "Escolhas do usuário.",
+   "comportamento": "Modais e não modais; cancelamento retorna valor distinto.",
+   "regras": "—",
+   "casos_especiais": "Cancelamento; multisseleção.",
+   "erros": "—",
+   "aceitacao": [
+    "Cancelar retorna 0/vazio",
+    "Barra de progresso atualiza e fecha"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F075"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F079",
+   "area": "APP",
+   "nome": "Empacotamento e compartilhamento de apps",
+   "descricao": "Empacotar app com dependências em instalador de app, galeria de apps instalados.",
+   "necessidade": "Distribuir ferramentas a colegas.",
+   "entradas": "Projeto de app.",
+   "saidas": "Pacote instalável.",
+   "comportamento": "Análise automática de dependências.",
+   "regras": "—",
+   "casos_especiais": "Dependências de outras extensões.",
+   "erros": "Arquivo ausente.",
+   "aceitacao": [
+    "Empacotar e instalar app em outra máquina"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F076",
+    "F131"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F085",
+   "area": "IDE",
+   "nome": "Ambiente desktop com painéis",
+   "descricao": "Janela principal com janela de comandos, navegador de arquivos, workspace, histórico, editor, figuras ancoradas, barras de ferramentas, layouts salvos, tema claro/escuro, zoom de fonte, múltiplos monitores.",
+   "necessidade": "Ambiente integrado produtivo.",
+   "entradas": "Interações de UI.",
+   "saidas": "Estado de layout persistido.",
+   "comportamento": "Painéis ancoráveis/desacopláveis; layouts nomeados.",
+   "regras": "—",
+   "casos_especiais": "Telas HiDPI; tela pequena.",
+   "erros": "—",
+   "aceitacao": [
+    "Layout persiste entre sessões",
+    "Tema escuro aplicado a todos os painéis",
+    "Painel desacoplado em outro monitor"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Tauri (MIT/Apache-2.0) + frontend próprio; runtime em processo separado comunicando via protocolo próprio.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F086",
+   "area": "IDE",
+   "nome": "Editor de código",
+   "descricao": "Edição com realce, dobra, múltiplos cursores, busca/substituição com regex, indentação automática, formatação, autocompletar contextual, dicas de assinatura, ir para definição, renomeação de variáveis, seções de código executáveis, execução de seleção.",
+   "necessidade": "Escrita eficiente de código.",
+   "entradas": "Texto do usuário.",
+   "saidas": "Arquivos salvos.",
+   "comportamento": "Análise contínua em segundo plano; seções delimitadas por marcador de comentário.",
+   "regras": "—",
+   "casos_especiais": "Arquivos > 10k linhas; codificações.",
+   "erros": "Arquivo somente leitura.",
+   "aceitacao": [
+    "Autocompletar sugere variáveis e funções do caminho",
+    "Executar seção avalia apenas a seção",
+    "Renomear variável atualiza ocorrências no escopo"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F087"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "CodeMirror 6 (MIT) + servidor de linguagem próprio (LSP).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F087",
+   "area": "IDE",
+   "nome": "Análise estática de código",
+   "descricao": "Mensagens de problemas/melhorias em tempo real, correções automáticas, supressão por linha/arquivo, regras configuráveis, relatório por pasta, métricas (complexidade).",
+   "necessidade": "Qualidade e prevenção de erros.",
+   "entradas": "Código.",
+   "saidas": "Diagnósticos.",
+   "comportamento": "Identificadores de mensagem estáveis; configuração por arquivo de projeto.",
+   "regras": "Regras próprias (não copiar textos de mensagens do original).",
+   "casos_especiais": "Código com erro de sintaxe parcial.",
+   "erros": "—",
+   "aceitacao": [
+    "Variável não usada sinalizada",
+    "Supressão por comentário respeitada",
+    "Relatório de pasta exportável"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F086"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F088",
+   "area": "IDE",
+   "nome": "Depurador",
+   "descricao": "Pontos de parada (linha, condicionais, em erro/aviso/NaN), passo a passo, entrar/sair, pilha de chamadas, inspeção e alteração de variáveis, continuar até cursor, depuração de apps e callbacks.",
+   "necessidade": "Diagnóstico de defeitos.",
+   "entradas": "Pontos de parada, comandos.",
+   "saidas": "Estado pausado.",
+   "comportamento": "Pontos de parada persistem entre edições quando possível.",
+   "regras": "—",
+   "casos_especiais": "Parada em código JIT; em callback de timer.",
+   "erros": "Linha inválida.",
+   "aceitacao": [
+    "Parada condicional dispara só quando verdadeira",
+    "'parar em erro' pausa no local do erro",
+    "Variável alterada no modo depuração afeta execução"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F086",
+    "F019"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Protocolo DAP; ganchos no interpretador.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F089",
+   "area": "IDE",
+   "nome": "Profiler de desempenho",
+   "descricao": "Medição de tempo por função/linha, contagem de chamadas, árvore de chamadas, gráfico de chama, comparação, relatório HTML, profiler de memória.",
+   "necessidade": "Otimização de desempenho.",
+   "entradas": "Execução de código.",
+   "saidas": "Relatórios.",
+   "comportamento": "Overhead controlado; histórico de execuções.",
+   "regras": "—",
+   "casos_especiais": "Código recursivo; multithread.",
+   "erros": "—",
+   "aceitacao": [
+    "Relatório lista tempo por linha",
+    "Gráfico de chama navegável"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F090",
+   "area": "IDE",
+   "nome": "Navegador de arquivos e pasta atual",
+   "descricao": "Navegação, criação, renomeação, exclusão, pré-visualização, filtros, indicação de status de controle de versão, busca de arquivos.",
+   "necessidade": "Gestão de arquivos do projeto.",
+   "entradas": "Ações de arquivo.",
+   "saidas": "Sistema de arquivos atualizado.",
+   "comportamento": "Sincroniza com 'cd' do runtime.",
+   "regras": "—",
+   "casos_especiais": "Pastas grandes (1e5 arquivos).",
+   "erros": "Permissão negada.",
+   "aceitacao": [
+    "cd no prompt atualiza painel",
+    "Excluir pede confirmação"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F085"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F091",
+   "area": "IDE",
+   "nome": "Navegador de workspace e editor de variáveis",
+   "descricao": "Lista de variáveis com tamanho/classe/estatísticas, edição em planilha de arrays/tabelas/structs, gráficos rápidos a partir da seleção, inspeção de objetos, limpeza de dados interativa.",
+   "necessidade": "Inspeção e edição de dados.",
+   "entradas": "Variáveis.",
+   "saidas": "Variáveis modificadas; código gerado.",
+   "comportamento": "Edições geram código equivalente reproduzível.",
+   "regras": "—",
+   "casos_especiais": "Variáveis enormes (paginação).",
+   "erros": "Valor inválido.",
+   "aceitacao": [
+    "Editar célula atualiza variável",
+    "Seleção gera gráfico",
+    "Edições registradas como código"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F085"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F092",
+   "area": "IDE",
+   "nome": "Ferramenta de importação de dados",
+   "descricao": "Assistente para importar texto/planilha com pré-visualização, detecção de tipos, seleção de intervalo, regras para valores inválidos, geração de script/função de importação.",
+   "necessidade": "Importação sem código.",
+   "entradas": "Arquivos.",
+   "saidas": "Variáveis e código gerado.",
+   "comportamento": "Usa mesmas opções que funções de leitura (F112, F113).",
+   "regras": "—",
+   "casos_especiais": "Arquivos grandes; cabeçalhos múltiplos.",
+   "erros": "Arquivo ilegível.",
+   "aceitacao": [
+    "Importar CSV com datas detectadas",
+    "Script gerado reproduz importação"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F112",
+    "F113"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F093",
+   "area": "IDE",
+   "nome": "Histórico de comandos",
+   "descricao": "Registro persistente de comandos com busca, reexecução, criação de script a partir de seleção, agrupamento por sessão.",
+   "necessidade": "Reprodutibilidade de trabalho interativo.",
+   "entradas": "Comandos.",
+   "saidas": "Histórico.",
+   "comportamento": "Configurável (tamanho, duplicatas).",
+   "regras": "—",
+   "casos_especiais": "Histórico corrompido.",
+   "erros": "—",
+   "aceitacao": [
+    "Seta para cima com prefixo filtra histórico",
+    "Criar script a partir da seleção"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F094",
+   "area": "IDE",
+   "nome": "Projetos",
+   "descricao": "Projetos com arquivos rastreados, rótulos, atalhos, caminho e scripts de inicialização/encerramento, análise de dependências, verificações de integridade, referências a outros projetos, exportação/arquivamento, integração com controle de versão.",
+   "necessidade": "Organização de trabalho em equipe.",
+   "entradas": "Pasta de projeto.",
+   "saidas": "Metadados de projeto (formato próprio).",
+   "comportamento": "Abrir projeto configura caminho e executa inicialização.",
+   "regras": "—",
+   "casos_especiais": "Projetos aninhados/referenciados; arquivos fora do projeto.",
+   "erros": "Metadados inválidos.",
+   "aceitacao": [
+    "Abrir projeto adiciona pastas ao caminho",
+    "Análise de dependências encontra arquivos faltantes",
+    "Exportar como arquivo compactado"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F095",
+    "F014"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F095",
+   "area": "IDE",
+   "nome": "Controle de versão integrado",
+   "descricao": "Git (clonar, commit, branch, merge, push/pull, histórico, stash, conflitos) e Subversion; indicadores no navegador de arquivos; diff/merge visual de arquivos de código e binários do projeto.",
+   "necessidade": "Colaboração e rastreabilidade.",
+   "entradas": "Repositórios.",
+   "saidas": "Operações VCS.",
+   "comportamento": "Credenciais pelo armazenamento do sistema.",
+   "regras": "—",
+   "casos_especiais": "Conflitos; repositórios grandes; LFS.",
+   "erros": "Falha de autenticação.",
+   "aceitacao": [
+    "Commit/branch/merge via UI",
+    "Indicador de modificado no navegador"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F096"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "libgit2 é GPL-2.0 com exceção de linking — fora da política; usar gitoxide (MIT/Apache-2.0) ou CLI git do sistema; Subversion via CLI ou libsvn (Apache-2.0).",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F096",
+   "area": "IDE",
+   "nome": "Comparação e mesclagem de arquivos",
+   "descricao": "Diferença lado a lado de texto, código, pastas, arquivos de dados (variáveis), documentos executáveis e modelos; mesclagem de três vias; relatório exportável.",
+   "necessidade": "Revisão de alterações.",
+   "entradas": "Dois/três arquivos.",
+   "saidas": "Relatório; arquivo mesclado.",
+   "comportamento": "Comparação semântica de tipos estruturados.",
+   "regras": "—",
+   "casos_especiais": "Arquivos binários grandes.",
+   "erros": "Tipos incompatíveis.",
+   "aceitacao": [
+    "Diff de texto com realce intra-linha",
+    "Comparar dois arquivos de dados lista variáveis diferentes"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F085"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F097",
+   "area": "IDE",
+   "nome": "Preferências e configurações",
+   "descricao": "Sistema hierárquico de configurações (fábrica, instalação, usuário, sessão) com API programática, diálogo de preferências, importação/exportação.",
+   "necessidade": "Personalização.",
+   "entradas": "Valores de configuração.",
+   "saidas": "Configurações persistidas.",
+   "comportamento": "Precedência de níveis; validação de tipos.",
+   "regras": "—",
+   "casos_especiais": "Arquivo corrompido (restauração).",
+   "erros": "Valor inválido.",
+   "aceitacao": [
+    "Valor de sessão sobrepõe usuário",
+    "Exportar/importar preferências"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F098",
+   "area": "IDE",
+   "nome": "Atalhos de teclado e ações personalizáveis",
+   "descricao": "Mapa de atalhos editável, conjuntos predefinidos (incl. estilo de outros editores), favoritos (botões de código), barra de acesso rápido.",
+   "necessidade": "Produtividade.",
+   "entradas": "Mapeamentos.",
+   "saidas": "Ações.",
+   "comportamento": "Conflitos detectados.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "Conflito de atalho.",
+   "aceitacao": [
+    "Atalho personalizado executa ação",
+    "Favorito executa trecho de código"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F085"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F099",
+   "area": "IDE",
+   "nome": "Visualizador de diagramas de classes e dependências",
+   "descricao": "Diagramas de classes gerados de código, grafo de dependências de arquivos/projetos.",
+   "necessidade": "Entendimento de arquitetura.",
+   "entradas": "Pastas/classes.",
+   "saidas": "Diagramas.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "Projetos grandes.",
+   "erros": "—",
+   "aceitacao": [
+    "Diagrama de classes mostra herança"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F094"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F100",
+   "area": "IDE",
+   "nome": "Opções de inicialização e modos sem interface",
+   "descricao": "Execução em lote ('-batch'), sem desktop, script de inicialização, variáveis de ambiente, log de sessão, código de saída, execução de script por linha de comando.",
+   "necessidade": "Automação e CI.",
+   "entradas": "Argumentos de linha de comando.",
+   "saidas": "Execução sem UI; código de saída.",
+   "comportamento": "Erro não tratado em lote retorna código ≠ 0.",
+   "regras": "—",
+   "casos_especiais": "Sem display (headless) com gráficos (renderização offscreen).",
+   "erros": "Argumento inválido.",
+   "aceitacao": [
+    "chimalab -batch \"disp(1)\" imprime 1 e sai com 0",
+    "Erro sai com código ≠ 0",
+    "Gráficos exportáveis sem display"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F101",
+   "area": "IDE",
+   "nome": "Barra de ferramentas contextual (faixa de opções)",
+   "descricao": "Faixa de opções com abas contextuais por ferramenta/editor, galeria de apps, pesquisa de ações.",
+   "necessidade": "Descoberta de recursos.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Disposição própria (não reproduzir layout distintivo do original).",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Aba contextual aparece ao focar editor"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F085"
+   ],
+   "juridico": "pat",
+   "restricoes_tecnicas": "Expressão visual do original é protegida — criar organização própria.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F102",
+   "area": "IDE",
+   "nome": "Notificações e mensagens do sistema",
+   "descricao": "Central de notificações (atualizações, tarefas concluídas).",
+   "necessidade": "Informação contextual.",
+   "entradas": "Eventos.",
+   "saidas": "Notificações.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Notificação de tarefa em segundo plano concluída"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F085"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F103",
+   "area": "IDE",
+   "nome": "Busca global",
+   "descricao": "Busca de arquivos, símbolos, ações e documentação a partir de campo único.",
+   "necessidade": "Navegação rápida.",
+   "entradas": "Consulta.",
+   "saidas": "Resultados.",
+   "comportamento": "Índice incremental.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Busca encontra função por nome parcial"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F085",
+    "F150"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F104",
+   "area": "IDE",
+   "nome": "Ambiente via navegador e acesso remoto",
+   "descricao": "Uso do ambiente pelo navegador conectado a sessão local/remota.",
+   "necessidade": "Uso remoto/nuvem.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Inferência: componentes 'connector' indicam servidor web interno para UI.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Interface acessível por navegador local com autenticação por token"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F085"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": "Hipótese",
+   "fase": null
+  },
+  {
+   "id": "F105",
+   "area": "IDE",
+   "nome": "Assistente de IA/sugestões de código",
+   "descricao": "Sugestões de código baseadas em modelos (componentes 'suggestion_models' presentes).",
+   "necessidade": "Produtividade.",
+   "entradas": "Contexto do editor.",
+   "saidas": "Sugestões.",
+   "comportamento": "Hipótese: autocompletar com modelo local e/ou serviço.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Sugestões opcionais e desativáveis; nenhum dado enviado sem consentimento"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F086"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": true,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": "Hipótese",
+   "fase": null
+  },
+  {
+   "id": "F106",
+   "area": "DOC",
+   "nome": "Documentos executáveis (scripts vivos)",
+   "descricao": "Documento com texto formatado, equações, imagens, links, código e saídas embutidas (valores, gráficos, tabelas); execução por seção; controles interativos (sliders, listas, botões) ligados a variáveis; tarefas interativas que geram código; modo de leitura/ocultar código.",
+   "necessidade": "Análise reprodutível e comunicação.",
+   "entradas": "Documento.",
+   "saidas": "Documento com saídas; formato de arquivo próprio aberto.",
+   "comportamento": "Saídas associadas às linhas; execução incremental; alteração de controle reexecuta seção.",
+   "regras": "Formato de arquivo próprio (ZIP+JSON documentado); importação de formatos abertos (ipynb, Markdown).",
+   "casos_especiais": "Documentos grandes; saídas pesadas.",
+   "erros": "Arquivo corrompido (recuperação).",
+   "aceitacao": [
+    "Gráfico aparece inline abaixo do código",
+    "Slider reexecuta seção ao mudar",
+    "Salvar/reabrir preserva saídas"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F086",
+    "F060"
+   ],
+   "juridico": "fmt",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F107",
+   "area": "DOC",
+   "nome": "Exportação de documentos",
+   "descricao": "Exportar documento executável/script para PDF, HTML, Word (docx), LaTeX, Markdown, notebook Jupyter.",
+   "necessidade": "Publicação.",
+   "entradas": "Documento.",
+   "saidas": "Arquivos.",
+   "comportamento": "Opções de página e inclusão de código.",
+   "regras": "—",
+   "casos_especiais": "Equações e imagens em todos os formatos.",
+   "erros": "—",
+   "aceitacao": [
+    "Exportar para PDF com equações",
+    "Exportar ipynb abre no Jupyter"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F106"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F108",
+   "area": "DOC",
+   "nome": "Publicação de scripts com marcação",
+   "descricao": "Gerar relatório a partir de script com comentários de marcação (títulos, listas, código, saídas, imagens) em HTML/PDF/DOC/LaTeX/XML.",
+   "necessidade": "Relatórios a partir de código.",
+   "entradas": "Script.",
+   "saidas": "Relatório.",
+   "comportamento": "Estilo via folha de transformação personalizável.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Publicar script com seções gera HTML com índice"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F002"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F109",
+   "area": "DOC",
+   "nome": "Verificação ortográfica",
+   "descricao": "Verificação ortográfica em texto de documentos e comentários.",
+   "necessidade": "Qualidade de texto.",
+   "entradas": "Texto.",
+   "saidas": "Sugestões.",
+   "comportamento": "Dicionários por idioma.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Palavra incorreta sublinhada"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F106"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "Hunspell é MPL/LGPL/GPL — NÃO usar; alternativa: spellbook (MPL? verificar) ou zspell (MIT) + dicionários com licença compatível.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F110",
+   "area": "IO",
+   "nome": "Arquivos de dados nativos (MAT)",
+   "descricao": "Salvar/carregar variáveis em arquivo binário de dados (versões 4, 5/6/7 compactada, 7.3 baseada em HDF5), carga/salvamento parcial, acesso a partes de variáveis sem carregar tudo, texto ASCII.",
+   "necessidade": "Persistência e intercâmbio com usuários do original.",
+   "entradas": "Variáveis/arquivo.",
+   "saidas": "Arquivo/variáveis.",
+   "comportamento": "Compressão; objetos serializados; leitura parcial para arquivos v7.3.",
+   "regras": "Formato v5 tem especificação pública do fabricante; v7.3 é HDF5 com convenções.",
+   "casos_especiais": "Arquivos > 2 GB; objetos de classes desconhecidas (carregar como struct + aviso).",
+   "erros": "Arquivo corrompido; versão não suportada.",
+   "aceitacao": [
+    "Ida-e-volta de todos os tipos básicos",
+    "Ler arquivo v5/v7/v7.3 de referência gerado por ferramenta de terceiros",
+    "Leitura parcial de matriz 10 GB sem carregar inteira"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F120"
+   ],
+   "juridico": "fmt",
+   "restricoes_tecnicas": "",
+   "estrategia": "Leitor/escritor próprio a partir da especificação pública do formato v5; v7.3 via HDF5.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F111",
+   "area": "IO",
+   "nome": "E/S de arquivo de baixo nível",
+   "descricao": "fopen/fclose/fread/fwrite/fprintf/fscanf/fgetl/fgets/fseek/ftell/feof/ferror com codificações e ordem de bytes; mapeamento de arquivo em memória.",
+   "necessidade": "Formatos binários personalizados.",
+   "entradas": "Arquivos, formatos.",
+   "saidas": "Dados.",
+   "comportamento": "Precisões com conversão ('int16=>double'); codificação de texto configurável.",
+   "regras": "—",
+   "casos_especiais": "Arquivos > 4 GB; fim de linha misto.",
+   "erros": "Arquivo inexistente; permissão.",
+   "aceitacao": [
+    "fread com ordem big-endian",
+    "memmapfile acesso aleatório"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F112",
+   "area": "IO",
+   "nome": "Texto delimitado e de largura fixa",
+   "descricao": "Leitura/escrita de tabelas, matrizes, células e linhas de texto/CSV com detecção automática de opções (delimitadores, cabeçalhos, tipos, formatos de data, locale), objetos de opções de importação editáveis, leitura formatada com especificadores.",
+   "necessidade": "Importação de dados comuns.",
+   "entradas": "Arquivos texto.",
+   "saidas": "Tabelas/arrays.",
+   "comportamento": "Detecção heurística reproduzível; opções explicitamente configuráveis.",
+   "regras": "—",
+   "casos_especiais": "Aspas, delimitadores múltiplos, linhas malformadas, BOM, codificações.",
+   "erros": "Arquivo malformado (regra configurável: erro/omitir/preencher).",
+   "aceitacao": [
+    "CSV com cabeçalho → tabela com tipos corretos",
+    "Opções editadas mudam tipo de coluna",
+    "textscan com formato"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F024"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F113",
+   "area": "IO",
+   "nome": "Planilhas",
+   "descricao": "Leitura/escrita de planilhas (xlsx, xlsm, xls, ods) com folhas, intervalos, formatos de data, preservação de formatação ao escrever; informação de folhas.",
+   "necessidade": "Intercâmbio com usuários de planilhas.",
+   "entradas": "Arquivos de planilha.",
+   "saidas": "Tabelas/arrays.",
+   "comportamento": "Sem depender de software de planilha instalado.",
+   "regras": "—",
+   "casos_especiais": "Células mescladas; fórmulas (valor calculado); datas 1900/1904.",
+   "erros": "Folha inexistente.",
+   "aceitacao": [
+    "Ler intervalo nomeado",
+    "Escrever tabela preservando formatação existente",
+    "xls legado lido"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F024"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "LibXL é comercial — NÃO usar; calamine (MIT) para leitura; rust_xlsxwriter (MIT/Apache-2.0) para escrita; xls legado: leitor próprio (formato documentado publicamente pela Microsoft).",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F114",
+   "area": "IO",
+   "nome": "JSON",
+   "descricao": "Codificação/decodificação JSON ↔ estruturas, leitura/escrita de arquivos JSON em structs/tabelas com opções (formatação, nomes de campos).",
+   "necessidade": "Integração web e configuração.",
+   "entradas": "Texto/arquivos JSON.",
+   "saidas": "Structs/arrays.",
+   "comportamento": "Arrays homogêneos viram arrays numéricos; null → [] ou NaN conforme opção.",
+   "regras": "Nomes inválidos ajustados reversivelmente.",
+   "casos_especiais": "Números grandes; Unicode; profundidade.",
+   "erros": "JSON inválido com posição.",
+   "aceitacao": [
+    "Ida-e-volta preserva estrutura",
+    "Pretty print opcional"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F009"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F115",
+   "area": "IO",
+   "nome": "XML",
+   "descricao": "Leitura/escrita de XML em structs, DOM completo (parse, navegação, XPath, transformação XSLT, validação por esquema), escrita.",
+   "necessidade": "Integração com sistemas corporativos.",
+   "entradas": "Arquivos XML.",
+   "saidas": "Structs/DOM.",
+   "comportamento": "Namespaces; atributos mapeados.",
+   "regras": "—",
+   "casos_especiais": "XML grande (streaming); entidades externas desativadas por segurança.",
+   "erros": "XML malformado.",
+   "aceitacao": [
+    "XPath retorna nós",
+    "XXE bloqueado por padrão"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F009"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "quick-xml (MIT) + xmltree; XPath/XSLT: implementação própria ou libxslt (MIT) via FFI.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F116",
+   "area": "IO",
+   "nome": "HTML e documentos de texto",
+   "descricao": "Leitura de tabelas de páginas HTML e de documentos Word (tabelas/texto) para tabelas.",
+   "necessidade": "Extração de dados de documentos.",
+   "entradas": "Arquivos HTML/DOCX.",
+   "saidas": "Tabelas.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "Tabelas aninhadas.",
+   "erros": "—",
+   "aceitacao": [
+    "readtable de tabela HTML",
+    "readtable de tabela em .docx"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F112"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F117",
+   "area": "IO",
+   "nome": "Formatos colunares (Parquet, Arrow/Feather)",
+   "descricao": "Leitura/escrita de Parquet com compressão, metadados, leitura seletiva de colunas/linhas; Feather.",
+   "necessidade": "Interoperabilidade com ecossistemas de dados.",
+   "entradas": "Arquivos.",
+   "saidas": "Tabelas.",
+   "comportamento": "Mapeamento de tipos documentado.",
+   "regras": "—",
+   "casos_especiais": "Tipos aninhados; datas com fuso.",
+   "erros": "Tipo sem mapeamento.",
+   "aceitacao": [
+    "Ida-e-volta Parquet com datetime",
+    "Leitura de colunas selecionadas"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F024"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "arrow-rs/parquet (Apache-2.0).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F118",
+   "area": "IO",
+   "nome": "Imagens",
+   "descricao": "Leitura/escrita/informação de BMP, GIF (animado), JPEG, JPEG 2000, PCX, PNG (alfa, 16 bits), TIFF (multipágina, tiles, metadados), PPM/PGM, ICO/CUR, HDF raster, e formatos científicos de imagem.",
+   "necessidade": "Processamento de imagens.",
+   "entradas": "Arquivos.",
+   "saidas": "Arrays.",
+   "comportamento": "Metadados acessíveis; qualidade/compressão configuráveis.",
+   "regras": "—",
+   "casos_especiais": "Imagens enormes; CMYK; paletas.",
+   "erros": "Formato desconhecido.",
+   "aceitacao": [
+    "PNG 16 bits com alfa ida-e-volta",
+    "TIFF multipágina lido por índice"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "Kakadu (JPEG 2000) é comercial — NÃO usar; OpenJPEG (BSD-2-Clause).",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F119",
+   "area": "IO",
+   "nome": "Áudio e vídeo",
+   "descricao": "Leitura/escrita de áudio (WAV, FLAC, OGG, MP3 leitura, MP4/M4A), reprodução e gravação de áudio com dispositivos, leitura/escrita de vídeo (AVI, MP4, MJ2, etc.) quadro a quadro, informação de mídia.",
+   "necessidade": "Multimídia científica.",
+   "entradas": "Arquivos/dispositivos.",
+   "saidas": "Arrays de amostras/quadros.",
+   "comportamento": "Seleção de dispositivo; taxas de amostragem.",
+   "regras": "—",
+   "casos_especiais": "Codecs indisponíveis na plataforma.",
+   "erros": "Codec não suportado.",
+   "aceitacao": [
+    "audioread WAV/FLAC correto",
+    "Gravar e reproduzir com dispositivo padrão",
+    "VideoWriter MP4 legível em players comuns"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "pat",
+   "restricoes_tecnicas": "libsndfile LGPL e FFmpeg LGPL/GPL — NÃO usar. hound/claxon/lewton (Apache-2.0/MIT), cpal (Apache-2.0), codecs H.264/AAC possuem patentes: usar frameworks do SO (Media Foundation/AVFoundation) ou openh264 (BSD-2-Clause, avaliar patentes).",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F120",
+   "area": "IO",
+   "nome": "Formatos científicos (HDF5, HDF4, NetCDF, CDF, FITS)",
+   "descricao": "Leitura/escrita de alto nível e APIs de baixo nível para HDF5, NetCDF; leitura de HDF4/HDF-EOS, CDF, FITS; informação/estrutura de arquivos.",
+   "necessidade": "Dados científicos padrão.",
+   "entradas": "Arquivos.",
+   "saidas": "Arrays/estruturas.",
+   "comportamento": "Atributos, grupos, chunking, compressão.",
+   "regras": "—",
+   "casos_especiais": "Arquivos > memória; tipos compostos.",
+   "erros": "Arquivo inválido.",
+   "aceitacao": [
+    "h5write/h5read ida-e-volta com atributos",
+    "NetCDF leitura de variável parcial"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "Bibliotecas de referência têm licenças BSD-like próprias (HDF5, NetCDF, CFITSIO) e NASA OSA (HDF-EOS2) — revisar cada uma; NASA OSA fora da política.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F121",
+   "area": "IO",
+   "nome": "Sistema de arquivos e arquivos compactados",
+   "descricao": "Listar, criar, copiar, mover, excluir, atributos, caminhos; zip/unzip, tar/untar, gzip/gunzip; caminhos remotos (armazenamento em nuvem e HTTP) em funções de E/S.",
+   "necessidade": "Gestão de arquivos.",
+   "entradas": "Caminhos.",
+   "saidas": "Arquivos/listagens.",
+   "comportamento": "Curingas; recursão; caminhos remotos por prefixo de esquema.",
+   "regras": "—",
+   "casos_especiais": "Links simbólicos; nomes Unicode; caminhos longos no Windows.",
+   "erros": "Permissão; inexistente.",
+   "aceitacao": [
+    "dir recursivo com **",
+    "zip/unzip ida-e-volta",
+    "Leitura de CSV em armazenamento de objetos compatível S3"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": true,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F122",
+   "area": "IO",
+   "nome": "Comandos do sistema e ambiente",
+   "descricao": "Executar comandos do SO com captura de saída e status, variáveis de ambiente, informação do computador, área de transferência.",
+   "necessidade": "Integração com ferramentas externas.",
+   "entradas": "Comandos.",
+   "saidas": "Saídas.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "Comandos interativos; codificação.",
+   "erros": "Comando inexistente.",
+   "aceitacao": [
+    "system retorna status e saída",
+    "clipboard copiar/colar texto"
+   ],
+   "complexidade": "B",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F123",
+   "area": "IO",
+   "nome": "Gerenciamento de segredos",
+   "descricao": "Armazenamento seguro de segredos (tokens, senhas) no cofre do sistema, com funções de definir/obter/remover e entrada mascarada.",
+   "necessidade": "Credenciais sem expor em código.",
+   "entradas": "Nome do segredo, valor.",
+   "saidas": "Segredos.",
+   "comportamento": "Cofre de credenciais do SO.",
+   "regras": "—",
+   "casos_especiais": "Cofre indisponível (Linux sem serviço).",
+   "erros": "Segredo inexistente.",
+   "aceitacao": [
+    "Segredo persiste entre sessões e não aparece em texto"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "keyring (MIT/Apache-2.0).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F124",
+   "area": "IO",
+   "nome": "Funções criptográficas/hash internas",
+   "descricao": "Componente criptográfico presente; finalidade exposta ao usuário não determinada.",
+   "necessidade": "A determinar.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Requisito a definir após investigação em documentação pública"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "NÃO VERIFICÁVEL",
+   "confianca_forcada": "Desconhecida",
+   "fase": null
+  },
+  {
+   "id": "F130",
+   "area": "BIG",
+   "nome": "Datastores",
+   "descricao": "Fontes de dados particionadas para coleções de arquivos (texto tabular, planilha, imagem, arquivo genérico com leitor personalizado, chave-valor, Parquet, conjuntos de arquivos, arrays em memória), combinadas/transformadas, particionamento, embaralhamento, escrita de saída.",
+   "necessidade": "Processar dados maiores que a memória.",
+   "entradas": "Pastas/arquivos/opções.",
+   "saidas": "Blocos de dados.",
+   "comportamento": "read/hasdata/reset/preview/readall; partições para paralelismo.",
+   "regras": "—",
+   "casos_especiais": "Arquivos heterogêneos; remotos.",
+   "erros": "Arquivo ilegível (pular/errar).",
+   "aceitacao": [
+    "Datastore de 1000 CSV itera em blocos",
+    "transform aplica função lazy",
+    "partition(n,i) cobre todos os arquivos"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F112",
+    "F121"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F131",
+   "area": "BIG",
+   "nome": "Arrays altos (avaliação adiada) e MapReduce",
+   "descricao": "Arrays 'altos' com operações adiadas e execução otimizada em passagens; framework MapReduce.",
+   "necessidade": "Análise de big data com sintaxe de arrays.",
+   "entradas": "Datastore.",
+   "saidas": "Resultados agregados.",
+   "comportamento": "Combinação de operações em poucas passagens; gather dispara execução.",
+   "regras": "—",
+   "casos_especiais": "Operações não suportadas em modo adiado (erro explícito).",
+   "erros": "—",
+   "aceitacao": [
+    "mean de tall array igual ao mean em memória",
+    "Número de passagens minimizado"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F130"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F135",
+   "area": "NET",
+   "nome": "Acesso web (HTTP/REST)",
+   "descricao": "Funções de alto nível de leitura/escrita/download web com opções (tempo-limite, cabeçalhos, autenticação, certificados); API HTTP de baixo nível com mensagens, cabeçalhos, corpo, cookies, progresso, redirecionamentos, multipart; proxy.",
+   "necessidade": "Integração com serviços web.",
+   "entradas": "URLs, opções.",
+   "saidas": "Dados decodificados conforme tipo de conteúdo.",
+   "comportamento": "Conversão automática JSON/imagem/texto; validação de certificado configurável.",
+   "regras": "—",
+   "casos_especiais": "Respostas grandes (streaming); proxy com autenticação.",
+   "erros": "Status HTTP de erro; tempo-limite; TLS inválido.",
+   "aceitacao": [
+    "webread JSON → struct",
+    "Upload multipart",
+    "Proxy configurável nas preferências"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F114"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F136",
+   "area": "NET",
+   "nome": "FTP, e-mail e sockets",
+   "descricao": "Cliente FTP/SFTP, envio de e-mail SMTP, clientes/servidores TCP, UDP, WebSocket.",
+   "necessidade": "Comunicação com equipamentos e serviços.",
+   "entradas": "Endereços, portas, dados.",
+   "saidas": "Dados recebidos.",
+   "comportamento": "Callbacks por bytes disponíveis/terminador; tempo-limite.",
+   "regras": "—",
+   "casos_especiais": "Conexão interrompida.",
+   "erros": "Host inacessível.",
+   "aceitacao": [
+    "tcpclient eco local",
+    "sendmail via servidor de teste",
+    "SFTP listar/baixar"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F137",
+   "area": "NET",
+   "nome": "Portas seriais e Bluetooth",
+   "descricao": "Comunicação por portas seriais (configuração, terminadores, callbacks), descoberta de portas; Bluetooth/BLE.",
+   "necessidade": "Hardware de laboratório.",
+   "entradas": "Porta, parâmetros.",
+   "saidas": "Dados.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "Desconexão física.",
+   "erros": "Porta ocupada.",
+   "aceitacao": [
+    "serialport loopback",
+    "Listar portas disponíveis"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "RXTX é LGPL — NÃO usar; crate serialport é MPL-2.0 — fora da política; implementação própria sobre termios/Win32.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F138",
+   "area": "NET",
+   "nome": "Sensores móveis e IoT",
+   "descricao": "Aquisição de sensores de dispositivo móvel e envio/leitura de canais IoT em serviços de nuvem.",
+   "necessidade": "Experimentos com dispositivos.",
+   "entradas": "Conta/dispositivo.",
+   "saidas": "Dados de sensores.",
+   "comportamento": "Depende de serviços externos; oferecer integração com serviços abertos.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Requisito equivalente com protocolo aberto (MQTT/HTTP) a definir"
+   ],
+   "complexidade": "A",
+   "dependencias": [],
+   "juridico": "svc",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": true,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F139",
+   "area": "NET",
+   "nome": "Gerenciador de hardware e pacotes de suporte",
+   "descricao": "Descoberta e configuração de hardware e instalação de pacotes de suporte a dispositivos.",
+   "necessidade": "Integração com hardware.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Requisito a definir"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F140"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": "Hipótese",
+   "fase": null
+  },
+  {
+   "id": "F140",
+   "area": "EXT",
+   "nome": "Funções compiladas externas (C/C++/Fortran)",
+   "descricao": "API C/C++/Fortran para criar funções compiladas chamáveis pelo runtime, comando de compilação com detecção de compiladores, API de arrays de dados (C e C++ moderna).",
+   "necessidade": "Desempenho e reaproveitamento de código nativo.",
+   "entradas": "Código-fonte nativo.",
+   "saidas": "Bibliotecas carregáveis.",
+   "comportamento": "API própria estável e documentada; camada de compatibilidade de origem com API publicamente documentada do original é questão jurídica pendente.",
+   "regras": "—",
+   "casos_especiais": "Compiladores ausentes; ABI.",
+   "erros": "Falha de compilação/carregamento.",
+   "aceitacao": [
+    "Compilar e chamar função C que soma arrays",
+    "Erro nativo não derruba o processo (isolamento opcional)"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "fmt",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F141",
+   "area": "EXT",
+   "nome": "Motor embutível (chamar o runtime de outras linguagens)",
+   "descricao": "APIs para iniciar/conectar ao runtime a partir de C, C++, Java, Python, .NET e Fortran; sessões compartilhadas; avaliação assíncrona.",
+   "necessidade": "Integração em aplicações existentes.",
+   "entradas": "Chamadas de API.",
+   "saidas": "Resultados convertidos.",
+   "comportamento": "Conversões de tipos documentadas por linguagem.",
+   "regras": "—",
+   "casos_especiais": "Múltiplas sessões; threads.",
+   "erros": "Sessão perdida.",
+   "aceitacao": [
+    "Python inicia runtime, avalia e recebe array NumPy",
+    "Conectar a sessão compartilhada"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F001"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F142",
+   "area": "EXT",
+   "nome": "API de arquivos de dados para outras linguagens",
+   "descricao": "Biblioteca C/Fortran para ler/escrever arquivos de dados nativos fora do runtime.",
+   "necessidade": "Interoperabilidade de dados.",
+   "entradas": "Arquivos.",
+   "saidas": "Dados.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Programa C lê arquivo de dados escrito pelo runtime"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F110"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F143",
+   "area": "EXT",
+   "nome": "Interoperabilidade com Python",
+   "descricao": "Chamar bibliotecas Python diretamente, executar código/arquivos Python, conversão automática de tipos (incl. arrays NumPy), seleção de ambiente/interpretador, execução em processo ou fora dele.",
+   "necessidade": "Ecossistema científico Python.",
+   "entradas": "Módulos/expressões Python.",
+   "saidas": "Objetos convertidos.",
+   "comportamento": "Conversão zero-cópia quando possível; ambiente configurável.",
+   "regras": "—",
+   "casos_especiais": "Versões múltiplas de Python; GIL; travamentos.",
+   "erros": "Módulo inexistente.",
+   "aceitacao": [
+    "py.math.sqrt(4) == 2",
+    "ndarray ↔ array numérico sem cópia",
+    "Modo fora de processo isola falhas"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "pyo3 (MIT/Apache-2.0).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F144",
+   "area": "EXT",
+   "nome": "Interoperabilidade com Java",
+   "descricao": "JVM embutida opcional: criar objetos Java, chamar métodos, conversão de tipos, caminho de classes dinâmico/estático.",
+   "necessidade": "Bibliotecas Java.",
+   "entradas": "Classes Java.",
+   "saidas": "Objetos.",
+   "comportamento": "—",
+   "regras": "Runtime Java fornecido pelo usuário (não redistribuir JRE comercial).",
+   "casos_especiais": "—",
+   "erros": "Classe inexistente.",
+   "aceitacao": [
+    "Criar java.util.ArrayList e adicionar elemento"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F003"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "jni (MIT/Apache-2.0) com JDK do usuário (OpenJDK GPL+CE não redistribuído).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F145",
+   "area": "EXT",
+   "nome": "Interoperabilidade com .NET e COM",
+   "descricao": "Carregar assemblies .NET, criar objetos, eventos; automação COM/ActiveX (Windows) incluindo controle de aplicativos de escritório; servidor de automação.",
+   "necessidade": "Integração Windows/corporativa.",
+   "entradas": "Assemblies/ProgIDs.",
+   "saidas": "Objetos.",
+   "comportamento": "—",
+   "regras": "Somente Windows para COM.",
+   "casos_especiais": "—",
+   "erros": "Assembly inexistente.",
+   "aceitacao": [
+    "Chamar System.DateTime.Now",
+    "Automação COM de planilha (se instalada)"
+   ],
+   "complexidade": "A",
+   "dependencias": [],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "hostfxr via netcorehost (MIT); crate windows (MIT/Apache-2.0).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F146",
+   "area": "EXT",
+   "nome": "Bibliotecas compartilhadas C e interfaces C++ geradas",
+   "descricao": "Carregar bibliotecas C via cabeçalho e chamar funções; gerar interface para bibliotecas C++ a partir de cabeçalhos.",
+   "necessidade": "Reuso de bibliotecas nativas sem escrever wrappers.",
+   "entradas": "Cabeçalhos, bibliotecas.",
+   "saidas": "Interfaces.",
+   "comportamento": "Análise de cabeçalhos C/C++.",
+   "regras": "—",
+   "casos_especiais": "Templates; ponteiros; callbacks.",
+   "erros": "Tipo não suportado.",
+   "aceitacao": [
+    "loadlibrary + calllib em libm",
+    "Interface C++ gerada para classe simples"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F140"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "libclang (Apache-2.0 WITH LLVM-exception) — requer aprovação; libloading (ISC).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F150",
+   "area": "PAR",
+   "nome": "Multithreading implícito",
+   "descricao": "Paralelização automática de operações elementares e álgebra linear em múltiplos núcleos, com controle do número de threads.",
+   "necessidade": "Desempenho sem esforço.",
+   "entradas": "Operações.",
+   "saidas": "Mesmos resultados, mais rápido.",
+   "comportamento": "Limiar de tamanho para paralelizar; maxNumCompThreads.",
+   "regras": "Resultados determinísticos (ou documentar diferenças de arredondamento).",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Speedup ≥ 3x em 4 núcleos para soma elementar de 1e8",
+    "Resultados idênticos com 1 e N threads (onde garantido)"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F005"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F151",
+   "area": "PAR",
+   "nome": "Execução em segundo plano e futures",
+   "descricao": "Pool de segundo plano para avaliar funções assíncronas, futures com estado, cancelamento, callbacks de conclusão (afterEach/afterAll), filas de dados entre tarefas.",
+   "necessidade": "Interfaces responsivas e paralelismo leve.",
+   "entradas": "Funções.",
+   "saidas": "Futures.",
+   "comportamento": "Execução em threads do runtime; resultados obtidos sob demanda.",
+   "regras": "—",
+   "casos_especiais": "Erro em tarefa; cancelamento.",
+   "erros": "Erro propagado ao obter resultado.",
+   "aceitacao": [
+    "parfeval no pool de fundo não bloqueia UI",
+    "cancel interrompe tarefa"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F016"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F152",
+   "area": "PAR",
+   "nome": "Comunicação entre processos",
+   "descricao": "Comunicação entre o runtime e outros processos (canais internos, sessões compartilhadas).",
+   "necessidade": "Arquitetura multiprocessos.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Inferência a partir de componentes 'interprocess'.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Protocolo próprio documentado"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": "Hipótese",
+   "fase": null
+  },
+  {
+   "id": "F155",
+   "area": "TST",
+   "nome": "Framework de testes unitários",
+   "descricao": "Testes baseados em scripts, funções e classes; asserções/verificações/suposições/fatais; fixtures (configuração/limpeza, compartilhadas); parametrização; tags; seleção; executores com plugins (TAP, JUnit XML, cobertura, diagnóstico); execução paralela; navegador de testes.",
+   "necessidade": "Qualidade de software.",
+   "entradas": "Arquivos de teste.",
+   "saidas": "Resultados de teste; relatórios.",
+   "comportamento": "Diagnósticos ricos em falhas; resultados tabuláveis.",
+   "regras": "—",
+   "casos_especiais": "Testes que alteram estado global; dependências.",
+   "erros": "Teste com erro vs falha distintos.",
+   "aceitacao": [
+    "Classe de teste parametrizada gera N casos",
+    "Relatório JUnit válido",
+    "Filtro por tag"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F007"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F156",
+   "area": "TST",
+   "nome": "Mocks e testes de desempenho",
+   "descricao": "Criação de objetos simulados com comportamento definido e verificação de interações; framework de medição de desempenho com amostragem estatística.",
+   "necessidade": "Testes isolados e regressão de desempenho.",
+   "entradas": "Interfaces/classes.",
+   "saidas": "Mocks; métricas.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Mock registra chamadas",
+    "Medição com intervalo de confiança"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F155"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F157",
+   "area": "TST",
+   "nome": "Testes de interface de aplicativos",
+   "descricao": "Gestos programáticos (pressionar, digitar, escolher, arrastar) em componentes de apps para testes automatizados.",
+   "necessidade": "Testar apps.",
+   "entradas": "Apps.",
+   "saidas": "Resultados.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Teste pressiona botão e verifica rótulo"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F075",
+    "F155"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F158",
+   "area": "TST",
+   "nome": "Cobertura de código",
+   "descricao": "Cobertura por função/linha/decisão/condição, relatórios HTML e Cobertura XML.",
+   "necessidade": "Medir qualidade dos testes.",
+   "entradas": "Código, testes.",
+   "saidas": "Relatórios.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Relatório Cobertura XML válido"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F155"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F159",
+   "area": "TST",
+   "nome": "Ferramenta de build",
+   "descricao": "Arquivo de build com tarefas, dependências, entradas/saídas para build incremental, tarefas padrão (análise de código, testes, limpeza, empacotamento), execução por linha de comando.",
+   "necessidade": "Automação de CI.",
+   "entradas": "Arquivo de build.",
+   "saidas": "Execução de tarefas.",
+   "comportamento": "Pula tarefas atualizadas.",
+   "regras": "—",
+   "casos_especiais": "Ciclos de dependência.",
+   "erros": "Tarefa inexistente.",
+   "aceitacao": [
+    "Segunda execução pula tarefas inalteradas",
+    "Falha de tarefa retorna código ≠ 0"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F155",
+    "F100"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F160",
+   "area": "TST",
+   "nome": "Automação e diagnóstico de execução",
+   "descricao": "Infraestrutura de relatórios/diagnósticos de automação compartilhada por testes e build.",
+   "necessidade": "—",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Requisito a definir"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F159"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": "Hipótese",
+   "fase": null
+  },
+  {
+   "id": "F165",
+   "area": "PKG",
+   "nome": "Empacotamento de extensões",
+   "descricao": "Empacotar código, apps, documentação e exemplos em arquivo de extensão instalável com metadados, versão, dependências e compatibilidade de plataforma.",
+   "necessidade": "Distribuir bibliotecas.",
+   "entradas": "Pasta de projeto.",
+   "saidas": "Pacote.",
+   "comportamento": "Instalação adiciona ao caminho; desinstalação remove.",
+   "regras": "—",
+   "casos_especiais": "Conflitos de versão.",
+   "erros": "Metadados inválidos.",
+   "aceitacao": [
+    "Empacotar, instalar, desinstalar",
+    "Dependência ausente reportada"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F014"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F166",
+   "area": "PKG",
+   "nome": "Gerenciador de pacotes",
+   "descricao": "Instalar/atualizar/remover pacotes a partir de repositórios, resolução de dependências por versão semântica, repositórios locais/remotos, lockfile.",
+   "necessidade": "Ecossistema de bibliotecas.",
+   "entradas": "Nomes/versões.",
+   "saidas": "Pacotes instalados.",
+   "comportamento": "Resolução determinística.",
+   "regras": "—",
+   "casos_especiais": "Conflitos insolúveis.",
+   "erros": "Pacote inexistente.",
+   "aceitacao": [
+    "Instalar pacote com dependências transitivas",
+    "Lockfile reproduz ambiente"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F165"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": true,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F167",
+   "area": "PKG",
+   "nome": "Explorador de extensões (catálogo online)",
+   "descricao": "Navegar, buscar e instalar extensões de catálogo comunitário/oficial.",
+   "necessidade": "Descoberta de extensões.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Depende de serviço externo — equivalente próprio.",
+   "regras": "—",
+   "casos_especiais": "Offline.",
+   "erros": "—",
+   "aceitacao": [
+    "Catálogo próprio navegável e instalável"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F166"
+   ],
+   "juridico": "svc",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": true,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F168",
+   "area": "PKG",
+   "nome": "Verificação de compatibilidade de versões",
+   "descricao": "Análise de código para identificar usos de funcionalidades removidas/alteradas entre versões e sugerir atualizações.",
+   "necessidade": "Migração de código.",
+   "entradas": "Código.",
+   "saidas": "Relatório.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Relatório lista funções obsoletas"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F087"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F170",
+   "area": "INS",
+   "nome": "Instalador interativo e silencioso",
+   "descricao": "Instalação com seleção de produtos/componentes, pasta de destino, atalhos; modo silencioso com arquivo de respostas; instalação a partir de mídia offline; verificação de integridade de pacotes.",
+   "necessidade": "Implantação em máquinas e laboratórios.",
+   "entradas": "Seleções/arquivo de respostas.",
+   "saidas": "Instalação.",
+   "comportamento": "Pacotes assinados verificados; dependências entre componentes resolvidas.",
+   "regras": "Instalação silenciosa por arquivo de respostas; pacotes assinados.",
+   "casos_especiais": "Espaço insuficiente; instalação parcial (rollback).",
+   "erros": "Assinatura inválida.",
+   "aceitacao": [
+    "Instalação silenciosa com arquivo de respostas",
+    "Pacote adulterado rejeitado",
+    "Remover componente individual"
+   ],
+   "complexidade": "A",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": "Inferência fundamentada",
+   "fase": null
+  },
+  {
+   "id": "F171",
+   "area": "INS",
+   "nome": "Atualizações",
+   "descricao": "Verificação, download e aplicação de atualizações e correções com reversão.",
+   "necessidade": "Manter software seguro.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Canal de atualização próprio assinado.",
+   "regras": "—",
+   "casos_especiais": "Offline.",
+   "erros": "Falha de download.",
+   "aceitacao": [
+    "Atualização assinada aplicada e revertida"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F170"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": true,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F172",
+   "area": "INS",
+   "nome": "Desinstalação",
+   "descricao": "Remoção completa ou por componente.",
+   "necessidade": "Higiene do sistema.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Desinstalar remove arquivos e atalhos"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F170"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F173",
+   "area": "INS",
+   "nome": "Licenciamento e ativação",
+   "descricao": "Em produtos comerciais: ativação, servidor de licenças em rede, verificação de licença por produto.",
+   "necessidade": "Em produtos comerciais: controle comercial.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Decisão: NÃO reproduzir mecanismo; projeto aberto sem ativação. Investigação NÃO tentou contornar o mecanismo.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Aplicação funciona sem ativação (decisão de projeto)"
+   ],
+   "complexidade": "B",
+   "dependencias": [],
+   "juridico": "svc",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": "Inferência fundamentada",
+   "fase": null
+  },
+  {
+   "id": "F174",
+   "area": "INS",
+   "nome": "Conta de usuário e login",
+   "descricao": "Login em conta para serviços online.",
+   "necessidade": "Acesso a serviços online.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Equivalente próprio opcional (contas apenas para serviços online do projeto).",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Uso offline completo sem conta"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "svc",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": true,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F175",
+   "area": "INS",
+   "nome": "Telemetria de uso e relatório de falhas",
+   "descricao": "Coleta de uso e relatórios de travamento.",
+   "necessidade": "Melhoria do produto.",
+   "entradas": "Consentimento.",
+   "saidas": "Relatórios.",
+   "comportamento": "Novo projeto: telemetria DESLIGADA por padrão, opt-in explícito; relatórios de falha locais com envio manual.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Nenhum tráfego de rede sem consentimento",
+    "Relatório de falha salvo localmente"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F180",
+   "area": "LOC",
+   "nome": "Ajuda em linha de comando e navegador de documentação",
+   "descricao": "Ajuda a partir de comentários de código, documentação de referência navegável e pesquisável offline/online, exemplos executáveis, 'ver também', documentação de extensões de terceiros integrada.",
+   "necessidade": "Aprendizado e consulta.",
+   "entradas": "Consultas.",
+   "saidas": "Páginas.",
+   "comportamento": "Documentação própria escrita do zero (NÃO traduzir/parafrasear documentação do original).",
+   "regras": "—",
+   "casos_especiais": "Documentação offline instalada como componente.",
+   "erros": "—",
+   "aceitacao": [
+    "help f mostra comentário inicial de f",
+    "Busca offline retorna resultados em < 300 ms",
+    "Exemplo abre e executa"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F085"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F181",
+   "area": "LOC",
+   "nome": "Localização da interface",
+   "descricao": "Interface e mensagens traduzidas (meta: pt-BR e inglês na v1, outros idiomas depois); formatação dependente de locale.",
+   "necessidade": "Usuários internacionais.",
+   "entradas": "Configuração de idioma.",
+   "saidas": "UI localizada.",
+   "comportamento": "Novo projeto: pt-BR e en como mínimo; arquitetura para outros idiomas.",
+   "regras": "—",
+   "casos_especiais": "Texto mais longo que layout.",
+   "erros": "Recurso ausente → fallback inglês.",
+   "aceitacao": [
+    "Troca de idioma sem reinstalar",
+    "Fallback para chave ausente"
+   ],
+   "complexidade": "M",
+   "dependencias": [],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F182",
+   "area": "LOC",
+   "nome": "Exemplos e materiais de aprendizado",
+   "descricao": "Exemplos executáveis e cursos/tutoriais interativos integrados (componentes 'academy', 'grader').",
+   "necessidade": "Aprendizado.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Conteúdo próprio.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Exemplos próprios abrem e executam"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F180"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F200",
+   "area": "SIM",
+   "nome": "Editor de diagramas de blocos",
+   "descricao": "Canvas para modelos hierárquicos: inserir blocos, conectar portas com roteamento automático e manual, ramificações, rótulos de sinais, anotações (texto/imagem/equações), áreas, zoom/pan, desfazer/refazer, copiar/colar entre modelos, navegação hierárquica com trilha, alinhamento/distribuição, busca rápida de blocos digitando no canvas.",
+   "necessidade": "Modelagem visual de sistemas dinâmicos.",
+   "entradas": "Interações de usuário.",
+   "saidas": "Modelo editado.",
+   "comportamento": "Roteamento evita sobreposição; conexões inválidas destacadas.",
+   "regras": "Aparência visual própria (não reproduzir ícones/estilo do original).",
+   "casos_especiais": "Modelos com 1e4 blocos; desfazer extenso.",
+   "erros": "Conexão de tipos incompatíveis (diagnóstico na atualização).",
+   "aceitacao": [
+    "Modelo com 1000 blocos edita a 60 fps",
+    "Desfazer/refazer ilimitado na sessão",
+    "Copiar subsistema entre modelos preserva parâmetros"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "pat",
+   "restricoes_tecnicas": "Expressão visual e ícones de blocos do original são protegidos — biblioteca visual própria.",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F201",
+   "area": "SIM",
+   "nome": "Biblioteca de blocos padrão",
+   "descricao": "Fontes (constante, degrau, rampa, seno, pulso, relógio, ruído, de workspace/arquivo, sinal de entrada), sumidouros (scope, display, para workspace/arquivo, terminator, stop), contínuos (integrador com limites/reset, derivada, função de transferência, espaço de estados, zero-polo, atraso de transporte, PID), descontinuidades (saturação, zona morta, relé, quantizador, backlash, rate limiter), discretos (atraso unitário, integrador discreto, filtro, FT discreta, ZOH, memória), operações matemáticas (soma, ganho, produto, funções, trigonometria, mínimo/máximo, matriz, polinômio), lógica e bits, tabelas de busca 1-D/2-D/N-D, roteamento (mux/demux, bus, switch, multiport switch, selector, goto/from, merge), atributos de sinal (conversão de tipo, IC, rate transition, largura), funções definidas pelo usuário, verificação de modelo (asserções), utilitários de modelo, strings, mensagens.",
+   "necessidade": "Construir modelos sem programar cada bloco.",
+   "entradas": "Seleção de blocos.",
+   "saidas": "Blocos com parâmetros.",
+   "comportamento": "Cada bloco tem semântica de tempo, tipos e dimensões documentada pelo projeto.",
+   "regras": "Parâmetros avaliados como expressões do runtime.",
+   "casos_especiais": "Parâmetros variáveis no tempo (tunáveis); blocos com estados.",
+   "erros": "Parâmetro inválido.",
+   "aceitacao": [
+    "Cada bloco tem teste de referência contra solução analítica/numérica independente",
+    "Integrador com reset externo",
+    "Lookup N-D com extrapolação configurável"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F202",
+    "F203"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Biblioteca própria com especificação por bloco em docs/ e testes de referência.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F202",
+   "area": "SIM",
+   "nome": "Motor de simulação",
+   "descricao": "Compilação do modelo (ordenação de blocos, propagação de tempos de amostragem, tipos, dimensões, complexidade), simulação contínua/discreta/híbrida multitaxa, solvers de passo fixo e variável (explícitos e rígidos), detecção e localização de cruzamentos por zero, laços algébricos (detecção e solução), tarefas única/multitarefa, tempos de amostragem herdados/constantes/disparados.",
+   "necessidade": "Resultados de simulação corretos e rápidos.",
+   "entradas": "Modelo, configuração.",
+   "saidas": "Sinais no tempo, estados.",
+   "comportamento": "Ordem de execução determinística; diagnóstico configurável de laços algébricos e transições de taxa.",
+   "regras": "Passo mínimo/máximo; tolerâncias.",
+   "casos_especiais": "Sistemas rígidos; descontinuidades; múltiplas taxas.",
+   "erros": "Passo mínimo violado; laço algébrico insolúvel.",
+   "aceitacao": [
+    "Modelo massa-mola-amortecedor coincide com solução analítica (tol)",
+    "Cruzamento por zero de bola quicando com erro < 1e-6",
+    "Sistema multitaxa com transições corretas"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F049"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Motor próprio: grafo de blocos → plano de execução; integração usando chimalab-math (F049).",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F203",
+   "area": "SIM",
+   "nome": "Atributos de sinal: tipos, dimensões, unidades e barramentos",
+   "descricao": "Tipos numéricos e de ponto fixo, enumerações, dimensões (escalar, vetor, matriz, N-D, tamanho variável), complexidade, unidades físicas com verificação/conversão, barramentos (virtuais e não virtuais) com objetos de definição e editor, portas de elementos de barramento, exibição de tipos/dimensões nas linhas.",
+   "necessidade": "Modelos corretos e verificáveis.",
+   "entradas": "Definições de tipos/barramentos.",
+   "saidas": "Sinais tipados.",
+   "comportamento": "Propagação de atributos para frente e para trás; conflitos reportados.",
+   "regras": "Unidades incompatíveis geram aviso/erro conforme configuração.",
+   "casos_especiais": "Barramentos aninhados; arrays de barramentos.",
+   "erros": "Incompatibilidade de tipo/dimensão.",
+   "aceitacao": [
+    "Propagação de tipos em cadeia",
+    "Conversão automática de unidades onde permitido",
+    "Editor de barramentos cria/edita definições"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F204",
+   "area": "SIM",
+   "nome": "Dados e parâmetros de modelo",
+   "descricao": "Workspaces de modelo/base, dicionários de dados (arquivo próprio), objetos de parâmetro/sinal, parâmetros ajustáveis durante simulação, editor de dados do modelo, explorador de modelos, inspetor de propriedades.",
+   "necessidade": "Gestão de dados de engenharia.",
+   "entradas": "Variáveis/objetos.",
+   "saidas": "Dados resolvidos.",
+   "comportamento": "Ordem de resolução de símbolos documentada.",
+   "regras": "—",
+   "casos_especiais": "Símbolos duplicados em fontes diferentes.",
+   "erros": "Símbolo não resolvido.",
+   "aceitacao": [
+    "Parâmetro em dicionário usado por vários modelos",
+    "Ajuste de ganho durante simulação reflete imediatamente"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "fmt",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F205",
+   "area": "SIM",
+   "nome": "Subsistemas e execução condicional",
+   "descricao": "Subsistemas virtuais e atômicos, habilitados, disparados, chamada de função, ação if/switch-case, iteradores for/while, for-each, subsistemas reutilizáveis/referenciados, reset.",
+   "necessidade": "Modularidade e lógica condicional.",
+   "entradas": "Blocos de subsistema.",
+   "saidas": "Hierarquia.",
+   "comportamento": "Semântica de estados ao desabilitar (manter/resetar).",
+   "regras": "—",
+   "casos_especiais": "Subsistemas aninhados profundos.",
+   "erros": "Configuração inconsistente.",
+   "aceitacao": [
+    "Subsistema habilitado mantém/reseta estados conforme opção",
+    "For-each processa vetor elemento a elemento"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F206",
+   "area": "SIM",
+   "nome": "Máscaras e blocos personalizados",
+   "descricao": "Editor de máscaras (parâmetros, diálogos, validações, ícones desenhados por comandos/imagens, código de inicialização), máscaras dinâmicas, bibliotecas personalizadas com links e controle de versão de links.",
+   "necessidade": "Encapsular e reutilizar componentes.",
+   "entradas": "Definições de máscara.",
+   "saidas": "Blocos personalizados.",
+   "comportamento": "Links de biblioteca propagam alterações; links desativados/restaurados.",
+   "regras": "—",
+   "casos_especiais": "Bibliotecas modificadas com instâncias abertas.",
+   "erros": "Parâmetro de máscara inválido.",
+   "aceitacao": [
+    "Máscara com parâmetro validado",
+    "Atualizar bloco de biblioteca reflete nas instâncias ligadas"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F200"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F207",
+   "area": "SIM",
+   "nome": "Referência de modelos e modelos protegidos",
+   "descricao": "Usar modelos como blocos dentro de outros, modos de simulação por referência, arquivos de cache de compilação, modelos protegidos (distribuição com proteção de IP: só simulação/código).",
+   "necessidade": "Escalabilidade de equipes.",
+   "entradas": "Modelos.",
+   "saidas": "Hierarquia de modelos.",
+   "comportamento": "Recompilação incremental baseada em verificação de alterações.",
+   "regras": "—",
+   "casos_especiais": "Referências circulares; múltiplas instâncias.",
+   "erros": "Modelo referenciado ausente.",
+   "aceitacao": [
+    "Alterar modelo referenciado invalida apenas seu cache",
+    "Modelo protegido simula sem expor conteúdo"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F202",
+    "F216"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F208",
+   "area": "SIM",
+   "nome": "Variantes",
+   "descricao": "Subsistemas/fontes/sumidouros variantes com condições, ativação em tempo de atualização/código/arranque, gerenciador de variantes.",
+   "necessidade": "Linhas de produto e configurações.",
+   "entradas": "Condições de variante.",
+   "saidas": "Modelo ativo.",
+   "comportamento": "Apenas variante ativa compilada (conforme modo).",
+   "regras": "—",
+   "casos_especiais": "Variantes aninhadas.",
+   "erros": "Nenhuma variante ativa.",
+   "aceitacao": [
+    "Troca de variante muda resultado da simulação"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F205"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F209",
+   "area": "SIM",
+   "nome": "Blocos definidos pelo usuário",
+   "descricao": "Bloco de função em linguagem do runtime, blocos de sistema baseados em objeto, funções S em C e em linguagem do runtime, chamada direta de código C (C caller), ferramenta de integração de código legado.",
+   "necessidade": "Estender a biblioteca.",
+   "entradas": "Código do usuário.",
+   "saidas": "Blocos.",
+   "comportamento": "Interface de estados, saídas, derivadas e tempos de amostragem própria e documentada.",
+   "regras": "—",
+   "casos_especiais": "Código C com falha (isolamento).",
+   "erros": "Erro de compilação.",
+   "aceitacao": [
+    "Bloco de função compila e simula",
+    "Função C integrada via C caller"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F202",
+    "F140"
+   ],
+   "juridico": "fmt",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F210",
+   "area": "SIM",
+   "nome": "Visualização e registro de sinais",
+   "descricao": "Scope (múltiplos eixos, cursores, medições, triggers), display, painel de controle interativo (botões, knobs, medidores, lâmpadas ligados a parâmetros/sinais), registro de sinais, inspetor de dados de simulação (comparar execuções, tolerâncias, exportar), formato de dados de saída estruturado.",
+   "necessidade": "Analisar resultados.",
+   "entradas": "Sinais.",
+   "saidas": "Visualizações, conjuntos de dados.",
+   "comportamento": "Registro sem blocos adicionais; streaming durante simulação.",
+   "regras": "—",
+   "casos_especiais": "Simulações longas (decimação).",
+   "erros": "—",
+   "aceitacao": [
+    "Comparar duas execuções com tolerância relativa",
+    "Scope atualiza durante simulação",
+    "Knob altera parâmetro em tempo de simulação"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F202",
+    "F061"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F211",
+   "area": "SIM",
+   "nome": "Entrada de dados e cenários de teste",
+   "descricao": "Importar sinais de workspace/arquivo para portas raiz, editor de sinais, mapeamento de entradas.",
+   "necessidade": "Estímulos reprodutíveis.",
+   "entradas": "Dados de sinal.",
+   "saidas": "Entradas mapeadas.",
+   "comportamento": "Interpolação/extrapolação configuráveis.",
+   "regras": "—",
+   "casos_especiais": "Tempos não monotônicos.",
+   "erros": "Dimensão incompatível.",
+   "aceitacao": [
+    "Mapear dataset para portas por nome",
+    "Editor cria sinal de degrau"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F212",
+   "area": "SIM",
+   "nome": "Controle programático de simulação",
+   "descricao": "Iniciar/pausar/continuar/parar, simulação por API com objetos de entrada/saída, simulações em lote e paralelas, reinício rápido sem recompilar, passo-a-passo e retrocesso, estados operacionais (salvar/restaurar).",
+   "necessidade": "Automação, otimização e varreduras.",
+   "entradas": "Objetos de entrada.",
+   "saidas": "Objetos de saída.",
+   "comportamento": "Saída consolidada com metadados e diagnósticos.",
+   "regras": "—",
+   "casos_especiais": "Erro em uma simulação de um lote.",
+   "erros": "Parâmetro inexistente.",
+   "aceitacao": [
+    "Lote de 100 simulações paralelas com resultados indexados",
+    "Fast restart evita recompilação",
+    "Retroceder passos restaura estado"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F202",
+    "F151"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F213",
+   "area": "SIM",
+   "nome": "Modos de simulação acelerados",
+   "descricao": "Modos com geração e compilação de código para acelerar simulação, com e sem interface de depuração.",
+   "necessidade": "Desempenho em modelos grandes.",
+   "entradas": "Modelo.",
+   "saidas": "Executável/biblioteca de simulação.",
+   "comportamento": "Mesmos resultados do modo normal (dentro de tolerância).",
+   "regras": "—",
+   "casos_especiais": "Blocos não suportados no modo.",
+   "erros": "Compilador ausente.",
+   "aceitacao": [
+    "Speedup ≥ 5x em modelo de referência",
+    "Resultados equivalentes ao modo normal"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F202",
+    "F140"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "Gerar C a partir do plano de execução e compilar com compilador do sistema; alternativa JIT via Cranelift.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F214",
+   "area": "SIM",
+   "nome": "Depuração e diagnóstico de modelos",
+   "descricao": "Depurador de simulação (pontos de parada em sinais/blocos), visualizador de diagnósticos, verificação em tempo de edição, perfilador de solver, consultor de desempenho, exibição de ordem de execução e cores/legenda de tempos de amostragem, consultor de modelo com verificações básicas.",
+   "necessidade": "Encontrar problemas em modelos.",
+   "entradas": "Modelo.",
+   "saidas": "Diagnósticos.",
+   "comportamento": "Mensagens com links para blocos.",
+   "regras": "Textos de verificação próprios.",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Ponto de parada condicional em sinal",
+    "Legenda de tempos de amostragem",
+    "Diagnóstico clicável destaca bloco"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F215",
+   "area": "SIM",
+   "nome": "Configuração de modelo",
+   "descricao": "Conjuntos de configuração: solver, importação/exportação de dados, otimização, diagnósticos, implementação de hardware (tamanhos de tipos, endianness), referências de configuração compartilhadas.",
+   "necessidade": "Controle de execução.",
+   "entradas": "Parâmetros.",
+   "saidas": "Configuração.",
+   "comportamento": "Configurações referenciáveis entre modelos.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "Valor inválido.",
+   "aceitacao": [
+    "Configuração referenciada compartilhada entre 2 modelos"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F216",
+   "area": "SIM",
+   "nome": "Formato de arquivo de modelo",
+   "descricao": "Formato de arquivo próprio aberto (ZIP + JSON/XML documentado) para modelos e bibliotecas; carregamento parcial; recuperação automática (autosave); exportação para versões anteriores do próprio formato.",
+   "necessidade": "Persistência, diff e controle de versão.",
+   "entradas": "Modelos.",
+   "saidas": "Arquivos.",
+   "comportamento": "Formato estável versionado e documentado.",
+   "regras": "Leitura de formatos de modelo de terceiros apenas como importador, sujeita a avaliação jurídica (fora do escopo atual, DT-10).",
+   "casos_especiais": "Arquivos grandes; autosave após falha.",
+   "erros": "Arquivo corrompido.",
+   "aceitacao": [
+    "Salvar/abrir ida-e-volta sem perda",
+    "Autosave recupera após encerramento forçado",
+    "Importador experimental de formato de terceiros (se aprovado)"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F200"
+   ],
+   "juridico": "fmt",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F217",
+   "area": "SIM",
+   "nome": "Comparação e mesclagem de modelos",
+   "descricao": "Diff estrutural de modelos (blocos, linhas, parâmetros, configuração, workspaces), mesclagem de três vias, relatório.",
+   "necessidade": "Revisão de modelos em equipe.",
+   "entradas": "Dois/três modelos.",
+   "saidas": "Relatório/merge.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "Modelos grandes.",
+   "erros": "—",
+   "aceitacao": [
+    "Diff identifica bloco com parâmetro alterado",
+    "Merge 3-vias de alterações não conflitantes"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F096",
+    "F216"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F218",
+   "area": "SIM",
+   "nome": "API programática de construção de modelos",
+   "descricao": "Criar/abrir/salvar modelos, adicionar/remover blocos e linhas, obter/definir parâmetros, buscar sistema, layout automático, callbacks de modelo e bloco (pré-carga, inicialização, início, término, etc.).",
+   "necessidade": "Automação de modelagem.",
+   "entradas": "Comandos.",
+   "saidas": "Modelos.",
+   "comportamento": "Callbacks em pontos definidos do ciclo de vida.",
+   "regras": "—",
+   "casos_especiais": "Callback com erro.",
+   "erros": "Caminho de bloco inválido.",
+   "aceitacao": [
+    "Script constrói modelo de 3 blocos e simula",
+    "Callback InitFcn executa antes da compilação"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F200",
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F219",
+   "area": "SIM",
+   "nome": "Funções e mensagens em modelos",
+   "descricao": "Funções definidas em modelo chamáveis de outros pontos, portas de função, sinais de mensagem com filas, eventos discretos.",
+   "necessidade": "Arquiteturas orientadas a serviços e eventos.",
+   "entradas": "Blocos.",
+   "saidas": "Execução.",
+   "comportamento": "Filas com capacidade e política.",
+   "regras": "—",
+   "casos_especiais": "Fila cheia.",
+   "erros": "—",
+   "aceitacao": [
+    "Chamada de função entre subsistemas",
+    "Fila de mensagens FIFO com capacidade"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F220",
+   "area": "SIM",
+   "nome": "Linearização e equilíbrio básicos",
+   "descricao": "Extração de modelo linear em ponto de operação, busca de ponto de equilíbrio (trim).",
+   "necessidade": "Análise de controle.",
+   "entradas": "Modelo, ponto.",
+   "saidas": "Matrizes A,B,C,D; estados de equilíbrio.",
+   "comportamento": "Perturbação numérica.",
+   "regras": "—",
+   "casos_especiais": "Modelos com descontinuidades.",
+   "erros": "Não convergência.",
+   "aceitacao": [
+    "Linearização de modelo linear reproduz matrizes"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": "Hipótese",
+   "fase": null
+  },
+  {
+   "id": "F221",
+   "area": "SIM",
+   "nome": "Co-simulação e FMI",
+   "descricao": "Importar unidades de modelo funcional (FMI 1/2/3, troca de modelo e co-simulação) como blocos; exportar modelos como FMU; serviços de co-simulação.",
+   "necessidade": "Interoperabilidade com outras ferramentas de modelagem.",
+   "entradas": "Arquivos FMU.",
+   "saidas": "Blocos/FMUs.",
+   "comportamento": "Padrão FMI aberto (Modelica Association).",
+   "regras": "—",
+   "casos_especiais": "FMU binária de plataforma diferente.",
+   "erros": "FMU inválida.",
+   "aceitacao": [
+    "Importar FMU de referência (FMI Cross-Check) e simular",
+    "Exportar FMU validada por ferramenta de terceiros"
+   ],
+   "complexidade": "MA",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "none",
+   "restricoes_tecnicas": "",
+   "estrategia": "Cabeçalhos FMI (BSD-2-Clause); implementação própria.",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F222",
+   "area": "SIM",
+   "nome": "Particionamento, tarefas e agendamento",
+   "descricao": "Editor de agendamento de partições/tarefas, mapeamento de taxas, editor de interfaces.",
+   "necessidade": "Sistemas multitarefa.",
+   "entradas": "Modelo.",
+   "saidas": "Agendamento.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Ordem de partições editável afeta execução"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F202"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F223",
+   "area": "SIM",
+   "nome": "Busca e navegação em modelos",
+   "descricao": "Busca de blocos/parâmetros/sinais com filtros, substituição, navegador de hierarquia, pré-visualização de arquivos de modelo.",
+   "necessidade": "Modelos grandes navegáveis.",
+   "entradas": "Consultas.",
+   "saidas": "Resultados.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Busca por valor de parâmetro em hierarquia"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F200"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F224",
+   "area": "SIM",
+   "nome": "Modelos de partida e página inicial",
+   "descricao": "Galeria de modelos-modelo, criação a partir de modelo, página inicial com recentes.",
+   "necessidade": "Início rápido.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "Conteúdo próprio.",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Criar modelo a partir de modelo-base próprio"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F200"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F225",
+   "area": "SIM",
+   "nome": "Documentação de sistemas em modelos",
+   "descricao": "Notas e documentação anexadas a sistemas no modelo.",
+   "necessidade": "Rastreabilidade.",
+   "entradas": "Texto.",
+   "saidas": "Notas.",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Nota persiste com o modelo"
+   ],
+   "complexidade": "B",
+   "dependencias": [
+    "F200"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F226",
+   "area": "SIM",
+   "nome": "Integração com projetos e controle de versão",
+   "descricao": "Modelos em projetos, análise de impacto de alterações, recarregamento após operações de VCS.",
+   "necessidade": "Trabalho em equipe.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Recarregar modelo após checkout"
+   ],
+   "complexidade": "M",
+   "dependencias": [
+    "F094",
+    "F216"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": null,
+   "confianca_forcada": null,
+   "fase": null
+  },
+  {
+   "id": "F227",
+   "area": "SIM",
+   "nome": "Simulação em segundo plano e cache",
+   "descricao": "Simulações em segundo plano sem bloquear o editor; cache de artefatos de compilação.",
+   "necessidade": "Produtividade.",
+   "entradas": "—",
+   "saidas": "—",
+   "comportamento": "—",
+   "regras": "—",
+   "casos_especiais": "—",
+   "erros": "—",
+   "aceitacao": [
+    "Simulação longa não bloqueia edição"
+   ],
+   "complexidade": "A",
+   "dependencias": [
+    "F212"
+   ],
+   "juridico": "default",
+   "restricoes_tecnicas": "",
+   "estrategia": "",
+   "servico_externo": false,
+   "status_forcado": "INVESTIGADA PARCIALMENTE",
+   "confianca_forcada": null,
+   "fase": null
+  }
+ ]
+}

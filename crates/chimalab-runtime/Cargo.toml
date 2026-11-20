@@ -1,0 +1,20 @@
+[package]
+name = "chimalab-runtime"
+description = "Modelo de valores, interpretador, workspaces e despacho"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+chimalab-array = { path = "../chimalab-array" }
+chimalab-math = { path = "../chimalab-math" }
+num-complex = "0.4"
+
+[dev-dependencies]
+proptest = "=1.12.0"

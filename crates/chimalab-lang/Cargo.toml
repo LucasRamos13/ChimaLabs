@@ -1,0 +1,14 @@
+[package]
+name = "chimalab-lang"
+description = "Léxico, parser, AST e análise semântica da linguagem ChimaLab"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

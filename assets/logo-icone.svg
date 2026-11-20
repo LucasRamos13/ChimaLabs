@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t">
+  <title id="t">ChimaLab (ícone)</title>
+  <!-- bomba -->
+  <path d="M318 58 L270 214" stroke="#C9CCCF" stroke-width="30" stroke-linecap="round" fill="none"/>
+  <!-- erva -->
+  <path d="M152 206 Q256 118 360 206 Z" fill="#A3B83A"/>
+  <!-- cuia -->
+  <path d="M146 222 C108 296 98 360 126 410 C152 454 200 474 256 474 C312 474 360 454 386 410 C414 360 404 296 366 222 Z" fill="#B5541F"/>
+  <rect x="136" y="194" width="240" height="34" rx="17" fill="#9E471A"/>
+  <rect x="198" y="462" width="116" height="22" rx="11" fill="#9E471A"/>
+  <!-- C -->
+  <path d="M302.7 300.3 A64 64 0 1 0 302.7 389.7" stroke="#D3E05A" stroke-width="28" stroke-linecap="round" fill="none"/>
+</svg>
