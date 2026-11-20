@@ -449,10 +449,11 @@ pub mod raw {
         (a.s, b.s)
     }
 
-    /// Verdadeiro se T^(2²⁵⁶) = T, consequência do período máximo 2²⁵⁶ − 1 do xoshiro256++.
-    pub fn xoshiro_period_identity() -> bool {
+    /// Verdadeiro se T^(2ᵏ) = T. Com k = 256 é consequência do período máximo 2²⁵⁶ − 1 do
+    /// xoshiro256++; com k < 256 é falso (2ᵏ − 1 não é múltiplo do período).
+    pub fn xoshiro_period_identity(k: u32) -> bool {
         let t = super::engines::xo_matrix();
-        super::engines::gf2_pow2k(&t, 256) == t
+        super::engines::gf2_pow2k(&t, k) == t
     }
 
     /// Estados do MRG32k3a após `k` passos um a um e por salto de matriz (devem coincidir).

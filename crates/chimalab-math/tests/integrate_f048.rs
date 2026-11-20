@@ -790,3 +790,115 @@ fn ladrilhos_contra_formas_fechadas() {
         "chimalab:integral:toleranciaInvalida"
     );
 }
+
+/// Ladrilhos: contagens exatas e fronteiras de controle (mutação). Integrandos racionais, sem
+/// libm, para que as contagens não dependam da plataforma. Cada ladrilho custa 15 × 15 = 225
+/// avaliações; o início tem 4 ladrilhos e cada divisão acrescenta 4.
+#[test]
+fn ladrilhos_contagens_e_fronteiras() {
+    use chimalab_math::integrate::{IntegralOptions, IntegralWarning, integral2_tiled};
+    let opc = |a: f64, r: f64, m: usize| IntegralOptions {
+        abs_tol: a,
+        rel_tol: r,
+        max_intervals: m,
+        ..Default::default()
+    };
+    // Limite inferior não nulo: ∫₀¹ ∫ₓ^{1+x} (x + y) dy dx = ∫₀¹ (2x + ½) dx = 3/2. Polinomial:
+    // converge nos 4 ladrilhos iniciais.
+    let r = integral2_tiled(
+        |x, y| x + y,
+        0.0,
+        1.0,
+        |x| x,
+        |x| 1.0 + x,
+        &opc(1e-13, 1e-13, 650),
+    )
+    .unwrap();
+    assert!((r.value - 1.5).abs() <= 4.0 * f64::EPSILON, "{}", r.value - 1.5);
+    assert_eq!((r.evaluations, r.warning), (900, None));
+    // Tolerância relativa com |Q| grande: 10⁶/(1 + x + y), abs_tol = 0.
+    // ∫∫ 1/(1+x+y) em [0,1]² = 3 ln 3 − 4 ln 2.
+    let ex = 1e6 * (3.0 * 3f64.ln() - 4.0 * 2f64.ln());
+    let r = integral2_tiled(
+        |x, y| 1e6 / (1.0 + x + y),
+        0.0,
+        1.0,
+        |_| 0.0,
+        |_| 1.0,
+        &opc(0.0, 1e-9, 650),
+    )
+    .unwrap();
+    assert_eq!(r.warning, None);
+    assert!((r.value - ex).abs() <= 1e-9 * ex, "{}", (r.value - ex) / ex);
+    assert!(r.error_bound <= 1e-9 * r.value.abs());
+    let n_rel = r.evaluations;
+    // Mesma conta com tolerância 10⁻⁹ absoluta (|Q| ≈ 10⁶) exige muito mais.
+    let r = integral2_tiled(
+        |x, y| 1e6 / (1.0 + x + y),
+        0.0,
+        1.0,
+        |_| 0.0,
+        |_| 1.0,
+        &opc(1e-9, 0.0, 650),
+    )
+    .unwrap();
+    assert!(r.evaluations > n_rel, "{} {}", r.evaluations, n_rel);
+    // Máximo de ladrilhos: tolerância nula nunca é alcançada com uma descontinuidade.
+    let degrau = |x: f64, y: f64| if 3.0 * (x + y) < 2.0 { 1.0 } else { 0.0 };
+    for (m, aval) in [(1, 900), (4, 900), (6, 900), (7, 1800), (9, 1800), (10, 2700)] {
+        let r = integral2_tiled(degrau, 0.0, 1.0, |_| 0.0, |_| 1.0, &opc(0.0, 0.0, m)).unwrap();
+        assert_eq!(
+            (r.evaluations, r.warning),
+            (aval, Some(IntegralWarning::MaxIntervals)),
+            "max = {m}"
+        );
+    }
+}
+
+/// Limite de resolução: singularidade pontual 1/r num ponto interior fora da malha diádica, com
+/// tolerância nula. O ladrilho que contém o ponto é dividido até o ponto médio coincidir com uma
+/// borda em ponto flutuante; aí o resultado sai com `MinimumStep` e o valor já está convergido.
+/// ∫∫ 1/r em [0,1]² com r medido a partir de (a, b): soma das quatro parcelas retangulares
+/// F(p, q) = p·asinh(q/p) + q·asinh(p/q). Perto do limite os nós podem cair exatamente no ponto
+/// singular; 1/r é limitado a 10²⁰ para que isso não vire `NonFinite` (num ladrilho de lado ~10⁻¹⁶ a
+/// contribuição do corte é ~10⁻¹²).
+#[test]
+fn ladrilhos_passo_minimo() {
+    use chimalab_math::integrate::{IntegralOptions, IntegralWarning, integral2_tiled};
+    let opc = IntegralOptions {
+        abs_tol: 0.0,
+        rel_tol: 0.0,
+        max_intervals: 100_000,
+        ..Default::default()
+    };
+    let canto = |p: f64, q: f64| p * (q / p).asinh() + q * (p / q).asinh();
+    for (a, b, n) in [
+        (0.3, 0.7, 499_500),
+        (0.71, 0.29, 624_600),
+        (0.37, 0.6, 567_900),
+        (0.62, 0.41, 263_700),
+        (1.0 / 3.0, 0.6, 540_900),
+        // Achados por busca: o limite de resolução cai do lado s0 = sm (primeiro) e tm = t1
+        // (segundo), que os pontos acima não exercitam.
+        (0.740_432_769_517_39, 0.275_964_440_278_307_13, 258_300),
+        (0.128_107_776_016_960_72, 0.581_476_196_109_341_5, 359_100),
+    ] {
+        let r = integral2_tiled(
+            |x, y| 1.0 / ((x - a).powi(2) + (y - b).powi(2)).max(1e-40).sqrt(),
+            0.0,
+            1.0,
+            |_| 0.0,
+            |_| 1.0,
+            &opc,
+        )
+        .unwrap();
+        let ex = canto(a, b) + canto(1.0 - a, b) + canto(a, 1.0 - b) + canto(1.0 - a, 1.0 - b);
+        assert_eq!(r.warning, Some(IntegralWarning::MinimumStep), "({a}, {b})");
+        assert!(
+            (r.value - ex).abs() <= 1e-9 * ex,
+            "({a}, {b}): {}",
+            (r.value - ex) / ex
+        );
+        assert_eq!(r.evaluations, n, "({a}, {b})");
+    }
+}

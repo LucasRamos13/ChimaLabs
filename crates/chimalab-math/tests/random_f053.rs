@@ -644,11 +644,25 @@ fn ziggurat_bit_a_bit() {
 /// coincidem com saltos repetidos.
 #[test]
 fn xoshiro_saltos_por_matriz_gf2() {
+    let mut vistos = Vec::new();
     for k in [0u64, 1, 2, 3, 63, 64, 65, 1000, 4097] {
         let (passo, matriz) = raw::xoshiro_step_vs_matrix(11, k);
         assert_eq!(passo, matriz, "k = {k}");
+        // Estados distintos para cada k (o período é 2²⁵⁶ − 1).
+        assert!(!vistos.contains(&passo), "k = {k}");
+        vistos.push(passo);
     }
-    assert!(raw::xoshiro_period_identity());
+    // O passo um a um é o próprio gerador: k = 1 a partir do estado da semente.
+    let mut g = Rng::new(Algorithm::Xoshiro256pp, 11);
+    let s0 = g.state();
+    g.next_u64();
+    assert_ne!(g.state(), s0);
+    assert!(raw::xoshiro_period_identity(256));
+    assert!(!raw::xoshiro_period_identity(255));
+    assert!(!raw::xoshiro_period_identity(128));
+    // Igualdade de geradores compara o estado.
+    assert!(Rng::new(Algorithm::Xoshiro256pp, 7) == Rng::new(Algorithm::Xoshiro256pp, 7));
+    assert!(Rng::new(Algorithm::Xoshiro256pp, 7) != Rng::new(Algorithm::Xoshiro256pp, 8));
     let mut a = Rng::with_stream(Algorithm::Xoshiro256pp, 7, 0, 0).unwrap();
     let mut b = Rng::new(Algorithm::Xoshiro256pp, 7);
     assert_eq!(a.next_u64(), b.next_u64());
@@ -656,6 +670,8 @@ fn xoshiro_saltos_por_matriz_gf2() {
     for n in [65u64, 100, 257] {
         let (potencia, repetido) = raw::xoshiro_jump_paths(7, n);
         assert_eq!(potencia, repetido, "n = {n}");
+        assert!(!vistos.contains(&potencia), "n = {n}");
+        vistos.push(potencia);
     }
     // Fluxos distintos dão estados distintos, inclusive o último.
     let ultimo = Rng::with_stream(Algorithm::Xoshiro256pp, 7, u64::MAX, 0).unwrap();

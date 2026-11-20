@@ -595,3 +595,83 @@ fn fluxo_maximo_igual_ao_corte_minimo_forca_bruta() {
         assert_eq!(cap(&|v: usize| lado_s[v]), minimo);
     }
 }
+
+/// Mutação (isomorfismo): orientação diferente com mesmas multiplicidades. Um laço em grafo não
+/// dirigido e em grafo dirigido dá a mesma matriz de multiplicidades e o mesmo número de arestas;
+/// só a checagem de orientação separa os dois.
+#[test]
+fn isomorfismo_orientacao_diferente_com_lacos() {
+    let nd = Graph::from_edges(2, false, &[(0, 0, 1.0), (1, 1, 1.0)]).unwrap();
+    let d = Graph::from_edges(2, true, &[(0, 0, 1.0), (1, 1, 1.0)]).unwrap();
+    assert!(nd.isomorphism(&d).is_none());
+    assert!(d.isomorphism(&nd).is_none());
+    assert!(d.isomorphism(&d).is_some());
+}
+
+/// Isomorfismo dirigido contra força bruta: todos os pares de dígrafos simples com 3 nós (64 × 64)
+/// e uma amostra fixa de pares com 4 nós e o mesmo número de arcos. Cada mapeamento devolvido
+/// precisa preservar os arcos nos dois sentidos.
+#[test]
+fn isomorfismo_dirigido_forca_bruta() {
+    fn digrafo(n: usize, mascara: u32) -> (Graph, Vec<Vec<bool>>) {
+        let pares: Vec<(usize, usize)> = (0..n)
+            .flat_map(|u| (0..n).filter(move |&v| v != u).map(move |v| (u, v)))
+            .collect();
+        let mut adj = vec![vec![false; n]; n];
+        let mut arcos = Vec::new();
+        for (i, &(u, v)) in pares.iter().enumerate() {
+            if mascara >> i & 1 == 1 {
+                adj[u][v] = true;
+                arcos.push((u, v, 1.0));
+            }
+        }
+        (Graph::from_edges(n, true, &arcos).unwrap(), adj)
+    }
+    fn permutacoes(n: usize) -> Vec<Vec<usize>> {
+        if n == 0 {
+            return vec![vec![]];
+        }
+        let mut out = Vec::new();
+        for p in permutacoes(n - 1) {
+            for i in 0..n {
+                let mut q = p.clone();
+                q.insert(i, n - 1);
+                out.push(q);
+            }
+        }
+        out
+    }
+    let valida = |a: &[Vec<bool>], b: &[Vec<bool>], p: &[usize]| {
+        (0..a.len()).all(|u| (0..a.len()).all(|v| a[u][v] == b[p[u]][p[v]]))
+    };
+    let confere = |n: usize, x: u32, y: u32, perms: &[Vec<usize>]| {
+        let ((ga, aa), (gb, ab)) = (digrafo(n, x), digrafo(n, y));
+        let existe = perms.iter().any(|p| valida(&aa, &ab, p));
+        match ga.isomorphism(&gb) {
+            Some(p) => assert!(
+                valida(&aa, &ab, &p),
+                "n={n} {x:b} {y:b}: mapeamento inválido {p:?}"
+            ),
+            None => assert!(!existe, "n={n} {x:b} {y:b}: isomorfos, mas devolveu None"),
+        }
+    };
+    let p3 = permutacoes(3);
+    for x in 0..64u32 {
+        for y in 0..64u32 {
+            confere(3, x, y, &p3);
+        }
+    }
+    let p4 = permutacoes(4);
+    let mut s = 12345u64;
+    let mut pares = 0;
+    while pares < 3000 {
+        s = s
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let (x, y) = ((s >> 20) as u32 & 0xfff, (s >> 40) as u32 & 0xfff);
+        if x.count_ones() == y.count_ones() {
+            confere(4, x, y, &p4);
+            pares += 1;
+        }
+    }
+}

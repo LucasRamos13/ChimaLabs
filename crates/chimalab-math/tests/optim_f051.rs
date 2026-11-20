@@ -13,6 +13,35 @@ use proptest::prelude::*;
 
 const EPS: f64 = f64::EPSILON;
 
+/// exp e sen deterministas (só +, −, ×, ÷, corretamente arredondados em IEEE 754), para testes que
+/// fixam a contagem exata de avaliações: a `exp`/`sin` da libm variam alguns ulp entre
+/// plataformas (no Windows, `exp_a` dava 23 avaliações em vez de 24), e o caminho do Brent muda.
+fn exp_det(x: f64) -> f64 {
+    // Redução de Cody–Waite: x = k·ln 2 + r, |r| ≤ ln2/2, com ln 2 em duas partes (a alta tem
+    // zeros finais, então k·LN2_HI é exato); Taylor de 22 termos em r; 2^k exato.
+    const LN2_HI: f64 = 0.693_147_180_369_123_8;
+    const LN2_LO: f64 = 1.908_214_929_270_587_7e-10;
+    let k = (x / std::f64::consts::LN_2).round();
+    let r = (x - k * LN2_HI) - k * LN2_LO;
+    let mut s = 1.0;
+    for j in (1..=22).rev() {
+        s = 1.0 + s * r / j as f64;
+    }
+    s * 2f64.powi(k as i32)
+}
+
+fn sin_det(x: f64) -> f64 {
+    let dois_pi = 2.0 * std::f64::consts::PI;
+    let r = x - (x / dois_pi).round() * dois_pi;
+    // Taylor ímpar até r⁴¹ em |r| ≤ π (resto < 1e-17).
+    let r2 = r * r;
+    let mut s = 1.0;
+    for k in (1..=20).rev() {
+        s = 1.0 - s * r2 / ((2 * k) * (2 * k + 1)) as f64;
+    }
+    r * s
+}
+
 fn raiz_fn(nome: &str) -> fn(f64) -> f64 {
     match nome {
         "wallis" => |x| x * x * x - 2.0 * x - 5.0,
@@ -960,7 +989,7 @@ fn fminbnd_caminho_de_brent() {
         ("inverso", |x| 1.0 / x + x, 0.01, 10.0, 1.0, 17),
         (
             "oscila",
-            |x| (x - 3.0).powi(2) + 0.1 * (20.0 * x).sin(),
+            |x| (x - 3.0).powi(2) + 0.1 * sin_det(20.0 * x),
             0.0,
             5.0,
             3.060_048_599_941_315,
@@ -968,7 +997,7 @@ fn fminbnd_caminho_de_brent() {
         ),
         (
             "exp_linear",
-            |x| x.exp() - 5.0 * x,
+            |x| exp_det(x) - 5.0 * x,
             -10.0,
             10.0,
             1.609_437_912_434_100_3,
@@ -993,17 +1022,17 @@ fn fminbnd_caminho_de_brent() {
         // Casos achados por busca aleatória em que a parábola sairia do intervalo pelo lado b
         // ou em que x cai exatamente no ponto médio (mudam o caminho se o teste de fronteira
         // ou o desempate x < m forem alterados).
-        ("exp_a", |x| (-0.9 * x).exp() + 0.9 * x, -1.7, 0.1, 0.0, 24),
-        ("exp_b", |x| x.exp() - 1.1 * x, -2.0, 1.5, 1.1f64.ln(), 24),
+        ("exp_a", |x| exp_det(-0.9 * x) + 0.9 * x, -1.7, 0.1, 0.0, 24),
+        ("exp_b", |x| exp_det(x) - 1.1 * x, -2.0, 1.5, 1.1f64.ln(), 24),
         (
             "seno_borda",
-            |x| (-2.6 * x + 1.0).sin() + 2.2 * x * x,
+            |x| sin_det(-2.6 * x + 1.0) + 2.2 * x * x,
             -2.0,
             -0.4,
             -0.4,
             42,
         ),
-        ("exp_c", |x| (-0.3 * x).exp() + 0.3 * x, -1.8, 0.4, 0.0, 23),
+        ("exp_c", |x| exp_det(-0.3 * x) + 0.3 * x, -1.8, 0.4, 0.0, 23),
     ];
     for (nome, f, a, b, xmin, aval) in casos {
         let r = fminbnd(f, a, b, &mut opts()).unwrap();
@@ -1014,5 +1043,97 @@ fn fminbnd_caminho_de_brent() {
         let tol = if nome == "quartica_plana" { 1e-4 } else { 1e-7 };
         assert!((r.x - xmin).abs() <= tol, "{nome}: {}", r.x);
         assert!(r.x >= a && r.x <= b);
+    }
+}
+
+/// Caminho exato do Brent em `fzero` (mutação). Funções sem libm (polinômios, racionais e √,
+/// todas corretamente arredondadas em IEEE 754), geradas por um LCG fixo: a sequência de
+/// procedimentos (interpolação ou bissecção), as avaliações e os bits da raiz de cada caso entram
+/// numa impressão digital FNV-1a. Com a interpolação quebrada a bissecção ainda converge, então só
+/// o caminho denuncia o defeito. A raiz também é conferida pelo intervalo final.
+#[test]
+fn fzero_caminho_de_brent() {
+    let mut s = 0x2545_f491_4f6c_dd1du64;
+    let mut u = || {
+        s = s
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (s >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let mut h = 0xcbf2_9ce4_8422_2325u64;
+    let mut mistura = |v: u64| {
+        for b in v.to_le_bytes() {
+            h = (h ^ b as u64).wrapping_mul(0x100_0000_01b3);
+        }
+    };
+    let (mut total, mut interp) = (0usize, 0usize);
+    for caso in 0..3000 {
+        let r = 4.0 * u() - 2.0;
+        let (c1, c2, k) = (2.0 * u() - 1.0, 0.1 + 2.0 * u(), 0.1 + 5.0 * u());
+        let f: Box<dyn Fn(f64) -> f64> = match caso % 6 {
+            0 => Box::new(move |x| (x - r) * (x * x + c1 * x + c1 * c1 + c2)),
+            1 => Box::new(move |x| (x - r) / (1.0 + k * x * x)),
+            2 => Box::new(move |x| (x - r).powi(3) * (1.0 + c2 * x * x)),
+            3 => Box::new(move |x| (x - r).powi(5) + c2 * (x - r)),
+            4 => Box::new(move |x| (x + 5.0).sqrt() - (r + 5.0).sqrt() + c1 * (x - r).powi(3)),
+            _ => Box::new(move |x| k * (x - r) + 1.0 / (x + 6.0) - 1.0 / (r + 6.0)),
+        };
+        let (a, b) = (r - 0.01 - 2.9 * u(), r + 0.01 + 2.9 * u());
+        if (f(a) > 0.0) == (f(b) > 0.0) {
+            continue; // número par de raízes no intervalo (famílias 0 e 4)
+        }
+        let tol_x = if caso % 4 == 3 { Some(1e-6) } else { None };
+        let mut o = Options {
+            tol_x,
+            history: true,
+            zero_method: ZeroMethod::Brent,
+            ..opts()
+        };
+        let res = fzero(&*f, Start::Interval(a, b), &mut o).unwrap();
+        assert_eq!(res.exit, ExitFlag::Converged, "caso {caso}");
+        // Raiz: intervalo final com mudança de sinal e largura no limite pedido (algumas famílias
+        // têm mais de uma raiz no intervalo inicial; qualquer uma serve).
+        let (lo, hi) = res.interval.unwrap();
+        let larg = 4.0 * (2.0 * EPS * res.x.abs() + 0.5 * tol_x.unwrap_or(0.0)) + f64::MIN_POSITIVE;
+        assert!(
+            res.fval == 0.0 || (f(lo) > 0.0) != (f(hi) > 0.0),
+            "caso {caso}: sem troca de sinal"
+        );
+        assert!(
+            res.fval == 0.0 || hi - lo <= larg,
+            "caso {caso}: largura {}",
+            hi - lo
+        );
+        mistura(res.fun_evals as u64);
+        mistura(res.x.to_bits());
+        for it in &res.history {
+            let p = matches!(it.procedure, Procedure::Interpolation);
+            interp += p as usize;
+            mistura(p as u64);
+            let (lo, hi) = it.interval.unwrap();
+            mistura(lo.to_bits() ^ hi.to_bits().rotate_left(32));
+        }
+        total += res.fun_evals;
+    }
+    println!("brent: {total} avaliações, {interp} passos de interpolação, impressão {h:#018x}");
+    assert_eq!((total, interp, h), (103_492, 74_623, 0xa17f_bf01_e649_8f01));
+    // Zero exato pela secante: f(½) = 0 na primeira interpolação, e o intervalo informado é o
+    // último com troca de sinal estrita.
+    for (a, b, iv, n) in [
+        (0.0, 1.0, (0.5, 0.501_968_383_789_062_5), 11),
+        (0.25, 3.0, (0.5, 3.0), 3),
+        (-1.0, 2.0, (0.5, 2.0), 4),
+    ] {
+        let mut o = Options {
+            history: true,
+            zero_method: ZeroMethod::Brent,
+            ..opts()
+        };
+        let res = fzero(|x| x - 0.5, Start::Interval(a, b), &mut o).unwrap();
+        assert_eq!(
+            (res.x, res.fval, res.interval, res.fun_evals),
+            (0.5, 0.0, Some(iv), n),
+            "({a}, {b})"
+        );
     }
 }

@@ -10,7 +10,7 @@ use std::cell::Cell;
 use chimalab_array::Scalar;
 
 use super::IntegrateError;
-use super::adaptive::{IntegralOptions, IntegralResult, IntegralWarning, integral};
+use super::adaptive::{IntegralOptions, IntegralResult, IntegralWarning, all_finite, integral};
 use super::gk::gk15_nodes;
 
 /// Estado compartilhado entre a integral externa e as internas.
@@ -179,15 +179,15 @@ pub fn integral2_tiled<T: Scalar>(
     let (nos, wk, wg) = gk15_nodes();
     let avaliacoes = Cell::new(0usize);
     let limite_ruim = Cell::new(false);
-    let nao_finito = Cell::new(false);
-    // Regra produto num ladrilho [s0, s1] × [t0, t1] do quadrado unitário: (K, G).
-    let mut regra = |s0: f64, s1: f64, t0: f64, t1: f64| -> (T, T) {
+    // Regra produto num ladrilho [s0, s1] × [t0, t1] do quadrado unitário, devolvido com o valor
+    // de Kronrod e o erro |K − G|. Um valor não finito de f contamina K (todos os pesos de
+    // Kronrod são positivos), e o total o acusa.
+    let mut ladrilho = |s0: f64, s1: f64, t0: f64, t1: f64| -> (f64, f64, f64, f64, T, f64) {
         let (hs, ht) = (0.5 * (s1 - s0), 0.5 * (t1 - t0));
         let (cs, ct) = (0.5 * (s0 + s1), 0.5 * (t0 + t1));
         let (mut k, mut g) = (T::zero(), T::zero());
         for i in 0..15 {
-            let u = cs + hs * nos[i];
-            let (s, ds) = suaviza(u);
+            let (s, ds) = suaviza(cs + hs * nos[i]);
             let x = xa + (xb - xa) * s;
             let (y0, y1) = (ya(x), yb(x));
             if !(y0.is_finite() && y1.is_finite()) {
@@ -200,9 +200,6 @@ pub fn integral2_tiled<T: Scalar>(
                 let (t, dt) = suaviza(ct + ht * nos[j]);
                 let v = f(x, y0 + (y1 - y0) * t).scale(dt);
                 avaliacoes.set(avaliacoes.get() + 1);
-                if !(v.abs().is_finite()) {
-                    nao_finito.set(true);
-                }
                 ki += v.scale(wk[j]);
                 if wg[j] != 0.0 {
                     gi += v.scale(wg[j]);
@@ -213,17 +210,16 @@ pub fn integral2_tiled<T: Scalar>(
                 g += gi.scale(wg[i] * jac);
             }
         }
-        (k.scale(hs * ht), g.scale(hs * ht))
+        let (k, g) = (k.scale(hs * ht), g.scale(hs * ht));
+        (s0, s1, t0, t1, k, (k - g).abs())
     };
-    // Ladrilhos: (s0, s1, t0, t1, valor, erro). Começa com 2 × 2.
+    // Começa com 2 × 2.
     let mut ladrilhos: Vec<(f64, f64, f64, f64, T, f64)> = Vec::new();
     for (s0, s1) in [(0.0, 0.5), (0.5, 1.0)] {
         for (t0, t1) in [(0.0, 0.5), (0.5, 1.0)] {
-            let (k, g) = regra(s0, s1, t0, t1);
-            ladrilhos.push((s0, s1, t0, t1, k, (k - g).abs()));
+            ladrilhos.push(ladrilho(s0, s1, t0, t1));
         }
     }
-    let mut aviso = None;
     loop {
         if limite_ruim.get() {
             return Err(IntegrateError::InvalidLimits(
@@ -232,56 +228,36 @@ pub fn integral2_tiled<T: Scalar>(
         }
         let q: T = ladrilhos.iter().fold(T::zero(), |a, l| a + l.4);
         let e: f64 = ladrilhos.iter().map(|l| l.5).sum();
-        if nao_finito.get() || !(q.abs() + e).is_finite() {
-            aviso = Some(IntegralWarning::NonFinite);
-            return Ok(IntegralResult {
-                value: q,
-                error_bound: e,
-                evaluations: avaliacoes.get(),
-                warning: aviso,
-            });
+        let resultado = |warning| IntegralResult {
+            value: q,
+            error_bound: e,
+            evaluations: avaliacoes.get(),
+            warning,
+        };
+        if !all_finite(q.abs(), e) {
+            return Ok(resultado(Some(IntegralWarning::NonFinite)));
         }
         if e <= opts.abs_tol.max(opts.rel_tol * q.abs()) {
-            return Ok(IntegralResult {
-                value: q,
-                error_bound: e,
-                evaluations: avaliacoes.get(),
-                warning: aviso,
-            });
+            return Ok(resultado(None));
         }
         if ladrilhos.len() + 3 > opts.max_intervals.max(4) {
-            aviso = Some(IntegralWarning::MaxIntervals);
-            return Ok(IntegralResult {
-                value: q,
-                error_bound: e,
-                evaluations: avaliacoes.get(),
-                warning: aviso,
-            });
+            return Ok(resultado(Some(IntegralWarning::MaxIntervals)));
         }
         let (im, _) = ladrilhos
             .iter()
             .enumerate()
             .max_by(|a, b| a.1.5.total_cmp(&b.1.5))
             .expect("não vazio");
-        let (s0, s1, t0, t1, _, _) = ladrilhos.swap_remove(im);
+        let (s0, s1, t0, t1, _, _) = ladrilhos[im];
         let (sm, tm) = (0.5 * (s0 + s1), 0.5 * (t0 + t1));
         if !(s0 < sm && sm < s1 && t0 < tm && tm < t1) {
             // Ladrilho no limite de resolução: devolve o que há, com aviso.
-            let (k, g) = regra(s0, s1, t0, t1);
-            ladrilhos.push((s0, s1, t0, t1, k, (k - g).abs()));
-            let q: T = ladrilhos.iter().fold(T::zero(), |a, l| a + l.4);
-            let e: f64 = ladrilhos.iter().map(|l| l.5).sum();
-            return Ok(IntegralResult {
-                value: q,
-                error_bound: e,
-                evaluations: avaliacoes.get(),
-                warning: Some(IntegralWarning::MinimumStep),
-            });
+            return Ok(resultado(Some(IntegralWarning::MinimumStep)));
         }
+        ladrilhos.swap_remove(im);
         for (a, b) in [(s0, sm), (sm, s1)] {
             for (c, d) in [(t0, tm), (tm, t1)] {
-                let (k, g) = regra(a, b, c, d);
-                ladrilhos.push((a, b, c, d, k, (k - g).abs()));
+                ladrilhos.push(ladrilho(a, b, c, d));
             }
         }
     }

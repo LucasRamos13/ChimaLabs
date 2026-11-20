@@ -319,7 +319,7 @@ pub fn integral<T: Scalar>(
 /// |Q| e E finitos. A soma é finita exatamente quando as duas parcelas são (Inf − Inf e NaN dão
 /// NaN), de modo que trocar `+` por `−` ou `·` dá o mesmo veredito (mutantes equivalentes
 /// registrados em `.cargo/mutants.toml`).
-fn all_finite(q_abs: f64, e: f64) -> bool {
+pub(super) fn all_finite(q_abs: f64, e: f64) -> bool {
     (q_abs + e).is_finite()
 }
 
