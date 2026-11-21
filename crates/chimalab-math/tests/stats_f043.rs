@@ -785,19 +785,19 @@ fn lowess_robusto_resiste_a_outliers() {
             "chimalab:stats:opcaoInvalida"
         );
     }
-    // Resíduos todos nulos no robusto (dados exatamente lineares): pesos 1.
+    // Resíduos todos nulos no robusto (dados exatamente lineares): pesos 1, e o ajuste local
+    // reproduz a reta. A igualdade é a menos de alguns ulp: os pesos tricúbicos usam `powi`,
+    // cuja precisão varia com a plataforma (no Windows, 4.999999999999999).
     let lin: Vec<f64> = (0..10).map(f64::from).collect();
-    assert_eq!(
-        smoothdata(
-            &lin,
-            SmoothMethod::Lowess {
-                span: 1.0,
-                robust: true
-            }
-        )
-        .unwrap()[5],
-        5.0
-    );
+    let v = smoothdata(
+        &lin,
+        SmoothMethod::Lowess {
+            span: 1.0,
+            robust: true,
+        },
+    )
+    .unwrap()[5];
+    assert!((v - 5.0).abs() <= 4.0 * f64::EPSILON * 5.0, "{v}");
 }
 
 #[test]

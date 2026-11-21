@@ -45,6 +45,24 @@ pub struct ScatteredInterpolant {
     values: Vec<f64>,
     adjacency: Vec<Vec<usize>>,
     method: ScatteredMethod,
+    /// Potência de 2 que leva a maior |coordenada| para [1, 2): pontos e consultas são divididos
+    /// por ela (exato). Os três métodos são invariantes por escala. Regressão: com coordenadas
+    /// ~1e155, produtos como Δx·Δy estouravam e o linear e o natural davam NaN.
+    escala: f64,
+}
+
+/// 2^⌊log₂ m⌋ para a maior |coordenada| finita m (1 se não houver coordenada normal não nula).
+fn escala_de(points: &[[f64; 2]]) -> f64 {
+    let m = points
+        .iter()
+        .flatten()
+        .filter(|v| v.is_finite())
+        .fold(0.0f64, |a, v| a.max(v.abs()));
+    if m.is_normal() {
+        f64::from_bits(m.to_bits() & 0x7ff0_0000_0000_0000)
+    } else {
+        1.0
+    }
 }
 
 impl From<GeomError> for InterpError {
@@ -69,7 +87,9 @@ impl ScatteredInterpolant {
                 actual: values.len(),
             });
         }
-        let tri = Delaunay::new(points)?;
+        let escala = escala_de(points);
+        let normalizados: Vec<[f64; 2]> = points.iter().map(|p| [p[0] / escala, p[1] / escala]).collect();
+        let tri = Delaunay::new(&normalizados)?;
         // Média dos valores dos repetidos, guardada no original.
         let mut v = values.to_vec();
         let mut soma: std::collections::HashMap<usize, (f64, usize)> = std::collections::HashMap::new();
@@ -98,6 +118,7 @@ impl ScatteredInterpolant {
             values: v,
             adjacency,
             method,
+            escala,
         })
     }
 
@@ -107,6 +128,7 @@ impl ScatteredInterpolant {
         if q.iter().any(|v| v.is_nan()) {
             return f64::NAN;
         }
+        let q = self.normaliza(q);
         let Some((t, l)) = self.tri.locate(q) else {
             return match extrap {
                 Extrap::Nan => f64::NAN,
@@ -143,6 +165,7 @@ impl ScatteredInterpolant {
     /// com soma 1 e Σ wᵢ·xᵢ = q. `None` fora do fecho convexo ou sobre a sua borda (onde as
     /// coordenadas são as lineares da aresta).
     pub fn sibson_coordinates(&self, q: [f64; 2]) -> Option<Vec<(usize, f64)>> {
+        let q = self.normaliza(q);
         let (t, _) = self.tri.locate(q)?;
         self.sibson(t, q)
     }
@@ -250,7 +273,12 @@ impl ScatteredInterpolant {
     /// Índice do ponto de dado mais próximo de q (caminhada gulosa no grafo de Delaunay; empate:
     /// o de menor índice).
     pub fn nearest_point(&self, q: [f64; 2]) -> usize {
+        let q = self.normaliza(q);
         self.nearest_from(self.tri.triangles()[0][0], q)
+    }
+
+    fn normaliza(&self, q: [f64; 2]) -> [f64; 2] {
+        [q[0] / self.escala, q[1] / self.escala]
     }
 
     fn nearest_from(&self, start: usize, q: [f64; 2]) -> usize {

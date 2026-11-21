@@ -928,3 +928,246 @@ proptest! {
         prop_assert!(v >= lo - 1e-12 && v <= hi + 1e-12);
     }
 }
+
+/// Spline cúbica contra as propriedades que a definem (oráculo independente, mutação): valores
+/// nos nós, C² nas quebras interiores, e a condição de cada extremo (not-a-knot: terceira
+/// derivada contínua na segunda e na penúltima quebra; natural: s'' = 0; fixada: s' dado;
+/// periódica: s' e s'' iguais nos extremos). n de 3 a 8, abscissas não uniformes, inclusive
+/// simétricas em torno de 0 (x₀ + x_{n−1} = 0) e muito desiguais.
+#[test]
+fn spline_propriedades_definidoras() {
+    let mut s = 31u64;
+    let mut u = || {
+        s = s
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (s >> 11) as f64 / (1u64 << 53) as f64
+    };
+    for caso in 0..240 {
+        // n e a condição de extremo independentes (todas as 24 combinações aparecem).
+        let n = 3 + (caso / 4) % 6;
+        let mut x = vec![0.0];
+        for _ in 1..n {
+            let passo = if caso % 5 == 0 {
+                0.01 + 50.0 * u() * u()
+            } else {
+                0.2 + u()
+            };
+            x.push(x.last().unwrap() + passo);
+        }
+        if caso % 3 == 1 {
+            // Simétricas em torno de 0.
+            let c = 0.5 * (x[0] + x[n - 1]);
+            x.iter_mut().for_each(|v| *v -= c);
+        }
+        let mut y: Vec<f64> = (0..n).map(|_| 4.0 * u() - 2.0).collect();
+        let ends = [
+            SplineEnd::NotAKnot,
+            SplineEnd::Natural,
+            SplineEnd::Clamped(3.0 * u() - 1.5, 3.0 * u() - 1.5),
+            SplineEnd::Periodic,
+        ];
+        let end = ends[caso % 4];
+        if end == SplineEnd::Periodic {
+            y[n - 1] = y[0];
+        }
+        let it = Interpolant1::new(&x, &y, Method1::Spline(end)).unwrap();
+        let pp = it.ppoly().unwrap();
+        assert_eq!(pp.degree(), 3);
+        let c = pp.coefs();
+        let m = n - 1;
+        let escala = 1.0 + y.iter().fold(0.0f64, |a, v| a.max(v.abs()));
+        let hmin = x.windows(2).map(|w| w[1] - w[0]).fold(f64::INFINITY, f64::min);
+        // Derivadas de ordem 0..3 no fim (h) do intervalo i e no início do i + 1.
+        let fim = |i: usize| {
+            let h = x[i + 1] - x[i];
+            let k = &c[i];
+            [
+                k[0] + h * (k[1] + h * (k[2] + h * k[3])),
+                k[1] + h * (2.0 * k[2] + 3.0 * h * k[3]),
+                2.0 * k[2] + 6.0 * h * k[3],
+                6.0 * k[3],
+            ]
+        };
+        let ini = |i: usize| [c[i][0], c[i][1], 2.0 * c[i][2], 6.0 * c[i][3]];
+        let tol = |ordem: i32| 1e-9 * escala / hmin.powi(ordem).min(1.0);
+        for i in 0..m {
+            assert!((c[i][0] - y[i]).abs() <= 1e-12 * escala, "caso {caso}: y[{i}]");
+        }
+        assert!((fim(m - 1)[0] - y[m]).abs() <= tol(0), "caso {caso}: y[{m}]");
+        for i in 0..m - 1 {
+            let (e, d) = (fim(i), ini(i + 1));
+            for o in 0..3 {
+                assert!(
+                    (e[o] - d[o]).abs() <= tol(o as i32 + 1),
+                    "caso {caso} {end:?}: ordem {o} em x[{}]",
+                    i + 1
+                );
+            }
+        }
+        match end {
+            SplineEnd::NotAKnot if n >= 4 => {
+                assert!(
+                    (fim(0)[3] - ini(1)[3]).abs() <= tol(4),
+                    "caso {caso}: not-a-knot em x₁"
+                );
+                assert!(
+                    (fim(m - 2)[3] - ini(m - 1)[3]).abs() <= tol(4),
+                    "caso {caso}: not-a-knot no fim"
+                );
+            }
+            SplineEnd::NotAKnot => {
+                // 3 pontos: a parábola (terceira derivada nula).
+                assert!(c.iter().all(|k| k[3].abs() <= tol(4)), "caso {caso}: parábola");
+            }
+            SplineEnd::Natural => {
+                assert!(
+                    ini(0)[2].abs() <= tol(2) && fim(m - 1)[2].abs() <= tol(2),
+                    "caso {caso}: natural"
+                );
+            }
+            SplineEnd::Clamped(a, b) => {
+                assert!(
+                    (ini(0)[1] - a).abs() <= tol(1) && (fim(m - 1)[1] - b).abs() <= tol(1),
+                    "caso {caso}: fixada"
+                );
+            }
+            SplineEnd::Periodic => {
+                for o in 1..3 {
+                    assert!(
+                        (ini(0)[o] - fim(m - 1)[o]).abs() <= tol(o as i32 + 1),
+                        "caso {caso}: periódica ordem {o}"
+                    );
+                }
+            }
+        }
+    }
+    // n = 2 com derivadas dadas: a cúbica de Hermite com s₀ = a e s₁ = b.
+    let it = Interpolant1::new(
+        &[0.0, 2.0],
+        &[1.0, 3.0],
+        Method1::Spline(SplineEnd::Clamped(0.5, -1.0)),
+    )
+    .unwrap();
+    let k = &it.ppoly().unwrap().coefs()[0];
+    assert_eq!((k[0], k[1]), (1.0, 0.5));
+    let fim = k[1] + 2.0 * (2.0 * k[2] + 3.0 * 2.0 * k[3]);
+    assert!((fim + 1.0).abs() <= 1e-15, "{fim}");
+}
+
+/// pchip, Akima e makima contra o oráculo de 40 dígitos (`tests/dados/F044/hermite.csv`, de
+/// `ferramentas/oraculos/f044_hermite.py`): derivadas nos nós pelas definições publicadas
+/// (Fritsch–Butland com o limitador de extremo; Akima 1970 com secantes fictícias; makima).
+/// Tolerância: 1e-13 relativa ao maior |y| do conjunto (avaliação de Hermite em f64).
+#[test]
+fn hermite_contra_oraculo() {
+    let csv = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/dados/F044/hermite.csv"
+    ))
+    .unwrap();
+    let dados: Vec<(&str, Vec<f64>, Vec<f64>)> = vec![
+        (
+            "irregular",
+            vec![0.0, 0.3, 1.1, 1.7, 2.0, 3.5, 4.2, 6.0],
+            vec![1.0, -0.4, 2.2, 2.1, 0.5, -1.3, 0.0, 3.0],
+        ),
+        ("quatro", vec![-2.0, -1.0, 0.5, 3.0], vec![4.0, 1.0, -0.25, 9.0]),
+        ("tres", vec![0.0, 1.0, 3.0], vec![1.0, -1.0, 2.0]),
+        ("limitador", vec![0.0, 1.0, 1.1, 2.0], vec![0.0, 1.0, -4.0, -3.0]),
+        (
+            "plato",
+            vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0],
+        ),
+        (
+            "monotono",
+            vec![0.0, 0.5, 0.6, 2.0, 2.2, 4.0],
+            vec![0.0, 0.1, 1.5, 1.6, 3.0, 3.1],
+        ),
+        (
+            "quebra",
+            vec![0.0, 1.0, 2.0, 3.0, 4.0],
+            vec![0.0, 1.0, 2.0, 4.0, 6.0],
+        ),
+    ];
+    let mut conferidos = 0;
+    for linha in csv.lines().skip(1) {
+        let c: Vec<&str> = linha.split(',').collect();
+        let (_, x, y) = dados.iter().find(|d| d.0 == c[0]).unwrap();
+        let metodo = match c[1] {
+            "pchip" => Method1::Pchip,
+            "akima" => Method1::Akima,
+            _ => Method1::Makima,
+        };
+        let it = Interpolant1::new(x, y, metodo).unwrap();
+        let (t, v): (f64, f64) = (c[2].parse().unwrap(), c[3].parse().unwrap());
+        let escala = y.iter().fold(1.0f64, |a, b| a.max(b.abs()));
+        let got = it.eval(t, Extrap::Extrapolate);
+        assert!(
+            (got - v).abs() <= 1e-13 * escala,
+            "{} {} x = {t}: {got} vs {v}",
+            c[0],
+            c[1]
+        );
+        conferidos += 1;
+    }
+    assert_eq!(conferidos, 630);
+}
+
+/// Dados dispersos em escalas extremas (regressão): com coordenadas ~1e155, o linear e o natural
+/// davam NaN (Δx·Δy estourava). Os métodos são invariantes por escala; agora o resultado é o mesmo
+/// de 1e-150 a 1e200. E o desempate do vizinho mais próximo: entre pontos equidistantes, o de
+/// menor índice, qualquer que seja o ponto de partida da busca (mutação).
+#[test]
+fn dispersos_escala_e_desempate() {
+    let p = [
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [0.0, 1.0],
+        [1.0, 1.0],
+        [3.0, 0.5],
+        [1.7, 2.2],
+    ];
+    let v = [10.0, 20.0, 30.0, 40.0, 50.0, 60.0];
+    let qs = [[0.3, 0.4], [0.9, 0.2], [2.0, 1.0], [1.5, 1.6], [0.5, 0.5]];
+    for metodo in [
+        ScatteredMethod::Linear,
+        ScatteredMethod::Natural,
+        ScatteredMethod::Nearest,
+    ] {
+        let base = ScatteredInterpolant::new(&p, &v, metodo).unwrap();
+        for s in [1e-150, 2f64.powi(-400), 1e100, 1e155, 1e160, 1e200] {
+            let ps: Vec<[f64; 2]> = p.iter().map(|q| [q[0] * s, q[1] * s]).collect();
+            let it = ScatteredInterpolant::new(&ps, &v, metodo).unwrap();
+            for q in qs {
+                let (a, b) = (
+                    base.eval(q, Extrap::Nan),
+                    it.eval([q[0] * s, q[1] * s], Extrap::Nan),
+                );
+                assert!(
+                    (a - b).abs() <= 1e-12 * a.abs(),
+                    "{metodo:?} escala {s:e} {q:?}: {a} {b}"
+                );
+            }
+        }
+    }
+    // Centro do quadrado unitário: os quatro cantos são equidistantes; vence o índice 0.
+    let it = ScatteredInterpolant::new(&p, &v, ScatteredMethod::Nearest).unwrap();
+    assert_eq!(it.eval([0.5, 0.5], Extrap::Nan), 10.0);
+    assert_eq!(it.nearest_point([0.5, 0.5]), 0);
+    // A mesma configuração com a ordem invertida dos cantos: vence de novo o menor índice.
+    let pr = [
+        [1.0, 1.0],
+        [0.0, 1.0],
+        [1.0, 0.0],
+        [0.0, 0.0],
+        [3.0, 0.5],
+        [1.7, 2.2],
+    ];
+    let it = ScatteredInterpolant::new(&pr, &v, ScatteredMethod::Nearest).unwrap();
+    assert_eq!(it.nearest_point([0.5, 0.5]), 0);
+    // Ponto médio exato entre dois nós vizinhos: o de menor índice.
+    assert_eq!(it.nearest_point([0.5, 1.0]), 0);
+    assert_eq!(it.nearest_point([1.0, 0.5]), 0);
+}

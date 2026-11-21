@@ -464,28 +464,25 @@ fn spline_slopes_unit(h: &[f64], d: &[f64], y: &[f64], end: SplineEnd) -> Result
 fn tridiagonal(sub: Vec<f64>, diag: Vec<f64>, sup: Vec<f64>, rhs: Vec<f64>) -> Vec<f64> {
     let n = diag.len();
     let (mut b, mut c, mut r) = (diag, sup, rhs);
-    let mut a = sub;
+    let a = sub;
+    // c[n−1] não existe na matriz; zerado, as escritas nele (e o e[n−2] que dele vem) nunca são
+    // lidas, e o laço dispensa casos especiais na última linha.
+    c[n - 1] = 0.0;
     let mut e = vec![0.0; n]; // segundo superdiagonal criado pelas trocas
     for i in 0..n - 1 {
         // Linha i: [b_i, c_i, e_i]; linha i+1: [a_{i+1}, b_{i+1}, c_{i+1}].
-        if a[i + 1].abs() > b[i].abs() {
+        let mut ai = a[i + 1];
+        if ai.abs() > b[i].abs() {
             // Troca as linhas i e i+1.
-            std::mem::swap(&mut b[i], &mut a[i + 1]);
+            std::mem::swap(&mut b[i], &mut ai);
             std::mem::swap(&mut c[i], &mut b[i + 1]);
-            let ei = e[i];
-            e[i] = if i + 1 < n - 1 { c[i + 1] } else { 0.0 };
-            if i + 1 < n - 1 {
-                c[i + 1] = ei;
-            }
+            std::mem::swap(&mut e[i], &mut c[i + 1]);
             r.swap(i, i + 1);
         }
-        let f = a[i + 1] / b[i];
+        let f = ai / b[i];
         b[i + 1] -= f * c[i];
-        if i + 1 < n - 1 {
-            c[i + 1] -= f * e[i];
-        }
+        c[i + 1] -= f * e[i];
         r[i + 1] -= f * r[i];
-        a[i + 1] = 0.0;
     }
     let mut s = vec![0.0; n];
     for i in (0..n).rev() {
@@ -720,5 +717,83 @@ impl GridInterpolant {
             vals = prox;
         }
         vals[0]
+    }
+}
+
+#[cfg(test)]
+mod testes_tridiagonal {
+    use super::tridiagonal;
+
+    /// Eliminação de Gauss densa com pivotamento parcial (oráculo independente).
+    fn denso(a: &mut [Vec<f64>], mut b: Vec<f64>) -> Vec<f64> {
+        let n = b.len();
+        for k in 0..n {
+            let p = (k..n)
+                .max_by(|&i, &j| a[i][k].abs().total_cmp(&a[j][k].abs()))
+                .unwrap();
+            a.swap(k, p);
+            b.swap(k, p);
+            for i in k + 1..n {
+                let f = a[i][k] / a[k][k];
+                for j in k..n {
+                    a[i][j] -= f * a[k][j];
+                }
+                b[i] -= f * b[k];
+            }
+        }
+        let mut x = vec![0.0; n];
+        for i in (0..n).rev() {
+            let s: f64 = (i + 1..n).map(|j| a[i][j] * x[j]).sum();
+            x[i] = (b[i] - s) / a[i][i];
+        }
+        x
+    }
+
+    /// Sistemas tridiagonais não dominantes (o pivotamento troca linhas e cria o segundo
+    /// superdiagonal), n de 2 a 9, contra a eliminação densa.
+    #[test]
+    fn tridiagonal_com_pivotamento_contra_denso() {
+        let mut s = 7u64;
+        let mut u = || {
+            s = s
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (s >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0
+        };
+        let mut trocas = 0;
+        for caso in 0..400 {
+            let n = 2 + caso % 8;
+            let sub: Vec<f64> = (0..n).map(|i| if i == 0 { 0.0 } else { 3.0 * u() }).collect();
+            // Zeros exatos na diagonal: sem pivotamento, a eliminação divide por zero.
+            let diag: Vec<f64> = (0..n)
+                .map(|i| {
+                    let v = 0.2 * u() + if caso % 3 == 0 { 2.0 } else { 0.0 };
+                    if (i + caso) % 3 == 1 { 0.0 } else { v }
+                })
+                .collect();
+            let sup: Vec<f64> = (0..n).map(|i| if i + 1 == n { 0.0 } else { 3.0 * u() }).collect();
+            let rhs: Vec<f64> = (0..n).map(|_| u()).collect();
+            trocas += (1..n).filter(|&i| sub[i].abs() > diag[i - 1].abs()).count();
+            let mut a = vec![vec![0.0; n]; n];
+            for i in 0..n {
+                a[i][i] = diag[i];
+                if i > 0 {
+                    a[i][i - 1] = sub[i];
+                }
+                if i + 1 < n {
+                    a[i][i + 1] = sup[i];
+                }
+            }
+            let esp = denso(&mut a, rhs.clone());
+            let x = tridiagonal(sub, diag, sup, rhs);
+            let escala = esp.iter().fold(1.0f64, |m, v| m.max(v.abs()));
+            for i in 0..n {
+                assert!(
+                    (x[i] - esp[i]).abs() <= 1e-11 * escala,
+                    "caso {caso} n={n}: {x:?} vs {esp:?}"
+                );
+            }
+        }
+        assert!(trocas > 500, "{trocas}");
     }
 }
