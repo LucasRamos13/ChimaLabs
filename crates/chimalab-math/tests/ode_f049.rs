@@ -1887,6 +1887,8 @@ fn deteccao_de_rigidez_no_dopri5() {
     .unwrap();
     let t = rigido_detectado(&s).expect("VdP μ = 1000 é rígido");
     assert!(t > 0.0 && t <= 1.0);
+    // São precisos 15 passos seguidos acima do limite: o aviso não sai antes do 15º passo.
+    assert!(t >= s.t[15], "aviso em {t}, antes do 15º passo ({})", s.t[15]);
     let s = solve_ivp(
         robertson,
         &[0.0, 1.0],
@@ -1925,4 +1927,74 @@ fn deteccao_de_rigidez_no_dopri5() {
     )
     .unwrap();
     assert_eq!(rigido_detectado(&s), None);
+    // Métodos implícitos nunca avisam (o padrão do `Stepper` é não detectar).
+    for m in [Method::Radau, Method::Bdf, Method::Ndf, Method::Rosenbrock] {
+        let s = solve_ivp(vdp(1000.0), &[0.0, 1.0], &[2.0, 0.0], &mut opts(m, 1e-6, 1e-9)).unwrap();
+        assert_eq!(rigido_detectado(&s), None, "{m:?}");
+        assert!(s.warnings.is_empty(), "{m:?}: {:?}", s.warnings);
+    }
+}
+
+/// Rosenbrock: contabilidade e custo (mutação). Problema rígido não autônomo com termo
+/// forçante polinomial (sem libm): y₁′ = −50(y₁ − g) + g′, g = t³/3 − t (solução exata y₁ = g),
+/// acoplado a y₂′ = −y₂/2 + y₁ e y₃′ = y₃(1 − y₃). Com Jacobiano por diferenças (n = 3), cada
+/// passo aceito custa 6 avaliações de f (3 do Jacobiano, 1 de ∂f/∂t, 2 estágios), cada rejeição
+/// 2 (estágios com o mesmo Jacobiano), mais 2 no início; uma fatoração por tentativa; um
+/// Jacobiano por passo aceito. O número de passos fica numa faixa de ±10% do medido (131 e 665),
+/// o que pega mudanças na norma do erro sem depender do último ulp de `powf`.
+#[test]
+fn rosenbrock_contabilidade_e_custo() {
+    for (tol, passos, fator) in [(1e-4, 131.0, 20.0), (1e-6, 665.0, 80.0)] {
+        let mut o = OdeOptions {
+            method: Method::Rosenbrock,
+            rel_tol: Some(tol),
+            abs_tol: Some(AbsTol::Scalar(tol)),
+            ..Default::default()
+        };
+        let s = solve_ivp(
+            |t, y, d| {
+                let (g, gp) = (t * t * t / 3.0 - t, t * t - 1.0);
+                d[0] = -50.0 * (y[0] - g) + gp;
+                d[1] = -0.5 * y[1] + y[0];
+                d[2] = y[2] * (1.0 - y[2]);
+            },
+            &[0.0, 4.0],
+            &[0.0, 1.0, 0.1],
+            &mut o,
+        )
+        .unwrap();
+        let st = s.stats;
+        assert_eq!(
+            st.fun_evals,
+            2 + 6 * st.steps + 2 * st.rejected,
+            "tol {tol}: {st:?}"
+        );
+        assert_eq!(st.lu_decomps, st.steps + st.rejected, "tol {tol}: {st:?}");
+        assert_eq!(st.jac_evals, st.steps, "tol {tol}: {st:?}");
+        let p = st.steps as f64;
+        assert!(p >= 0.9 * passos && p <= 1.1 * passos, "tol {tol}: {p} passos");
+        let e =
+            s.t.iter()
+                .zip(&s.y)
+                .map(|(t, y)| (y[0] - (t * t * t / 3.0 - t)).abs())
+                .fold(0.0, f64::max);
+        assert!(e <= fator * tol, "tol {tol}: erro {e}");
+    }
+}
+
+/// Matriz de massa de tamanho errado: o erro informa os números de elementos (mutação).
+#[test]
+fn massa_de_tamanho_errado_informa_os_tamanhos() {
+    use chimalab_math::linalg::Matrix;
+    use chimalab_math::ode::OdeError;
+    let mut o = OdeOptions {
+        method: Method::Radau,
+        mass: Some(Matrix::zeros(2, 3)),
+        ..Default::default()
+    };
+    let r = solve_ivp(|_, y, d| d.copy_from_slice(y), &[0.0, 1.0], &[1.0, 1.0], &mut o);
+    match r {
+        Err(OdeError::ShapeMismatch { expected, actual }) => assert_eq!((expected, actual), (4, 6)),
+        o => panic!("{:?}", o.map(|s| s.status)),
+    }
 }

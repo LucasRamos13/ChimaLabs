@@ -2,7 +2,7 @@
 
 use std::collections::VecDeque;
 
-use super::{NanFlag, StatsError, VarNorm, mean_of, median_mut, neumaier, var_of};
+use super::{NanFlag, StatsError, VarNorm, mean_of, median_mut, neumaier_par, var_of};
 
 /// Janela em torno do elemento i.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -155,11 +155,11 @@ fn sliding_sum(x: &[f64], b: usize, a: usize, media: bool, nan: NanFlag) -> Vec<
             }
             l += 1;
         }
-        // Recalcula periodicamente (e sempre que houver ±∞, que a remoção não desfaz).
+        // Recalcula periodicamente (e sempre que houver ±∞, que a remoção não desfaz), mantendo
+        // o par (s, c). Regressão: recalcular com s = s + c arredondado perdia a parte baixa, e
+        // com cancelamento catastrófico a soma móvel errava em ordem 1 (1e16, 1, −1e16 dava 0).
         if i % 1024 == 0 || !s.is_finite() {
-            let w = x[l..r].iter().copied().filter(|v| !v.is_nan());
-            s = neumaier(w);
-            c = 0.0;
+            (s, c) = neumaier_par(x[l..r].iter().copied().filter(|v| !v.is_nan()));
         }
         let total = if s.is_finite() { s + c } else { s };
         let v = if nans > 0 && nan == NanFlag::Include {

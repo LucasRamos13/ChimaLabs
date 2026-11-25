@@ -129,6 +129,14 @@ fn usable(x: &[f64], nan: NanFlag) -> Option<Vec<f64>> {
 
 /// Soma compensada de Neumaier (erro ~2ε·Σ|xᵢ|, independente de n). Vazio: 0.
 pub(crate) fn neumaier(x: impl IntoIterator<Item = f64>) -> f64 {
+    let (s, c) = neumaier_par(x);
+    // Com ±∞ na entrada, c vira NaN (∞ − ∞); a soma correta é s.
+    if s.is_finite() { s + c } else { s }
+}
+
+/// Soma de Neumaier sem o arredondamento final: (s, c) com s + c a soma compensada. Para quem
+/// continua acumulando (somas móveis), juntar s + c antes perderia a parte baixa.
+pub(crate) fn neumaier_par(x: impl IntoIterator<Item = f64>) -> (f64, f64) {
     let mut s = 0.0f64;
     let mut c = 0.0f64;
     for v in x {
@@ -140,8 +148,7 @@ pub(crate) fn neumaier(x: impl IntoIterator<Item = f64>) -> f64 {
         }
         s = t;
     }
-    // Com ±∞ na entrada, c vira NaN (∞ − ∞); a soma correta é s.
-    if s.is_finite() { s + c } else { s }
+    (s, c)
 }
 
 /// Soma (compensada). Vazio: 0.

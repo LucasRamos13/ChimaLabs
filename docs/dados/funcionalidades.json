@@ -138,7 +138,7 @@
    "restricoes_tecnicas": "",
    "estrategia": "Parser recursivo-descendente próprio + interpretador sobre AST/bytecode; REPL com detecção de bloco incompleto.",
    "servico_externo": false,
-   "status_forcado": null,
+   "status_forcado": "EM DESENVOLVIMENTO",
    "confianca_forcada": null,
    "fase": null
   },

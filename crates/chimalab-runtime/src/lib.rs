@@ -4,15 +4,17 @@
 //! elemento a elemento com expansão implícita e as matriciais (F005), e a indexação na base 1
 //! (F004). A sintaxe da linguagem (perguntas 27–36) não afeta estas regras.
 
+mod concat;
 mod error;
 mod index;
 mod ops;
 mod value;
 
+pub use concat::{concat, horzcat, vertcat};
 pub use error::RuntimeError;
 pub use index::{Index, subsasgn, subsdelete, subsref};
 pub use ops::{
-    BinOp, CmpOp, LogicOp, Warning, colon, compare, elementwise, logical, mldivide, mtimes, neg, not, sqrt,
-    transpose,
+    BinOp, CmpOp, LogicOp, Warning, colon, compare, elementwise, linspace, logical, mldivide, mpower,
+    mrdivide, mtimes, neg, not, sqrt, transpose,
 };
 pub use value::{Class, IntClass, IntData, Value};

@@ -143,3 +143,60 @@ fn pde_erros() {
         assert!((u[1][i] - (1.0 - r * r)).abs() < 2e-3, "{r}: {}", u[1][i]);
     }
 }
+
+/// Solução manufaturada (mutação): u = e^{−t}·cos x + x², com c = 1 + x, fluxo f = k·uₓ,
+/// k = 1 + x², e o termo-fonte s que faz u ser solução exata de
+/// c·u_t = x^{−m}·∂ₓ(x^m·f) + s, nas três geometrias. Contornos: Robin à direita
+/// (p = 2(u − u_exato) − f_exato, q = 1); à esquerda, Dirichlet não linear u³ = u_exato³ com
+/// condição inicial inconsistente (corrigida pela secante) em m = 0, e simetria f = 0 em x = 0
+/// para m = 1, 2. Erro O(h²), conferido em duas malhas.
+#[test]
+fn solucao_manufaturada_tres_geometrias() {
+    let ue = |x: f64, t: f64| (-t).exp() * x.cos() + x * x;
+    let ux = |x: f64, t: f64| -(-t).exp() * x.sin() + 2.0 * x;
+    // uₓ/x, com o limite em x = 0.
+    let ux_x = |x: f64, t: f64| {
+        let sinc = if x == 0.0 { 1.0 } else { x.sin() / x };
+        -(-t).exp() * sinc + 2.0
+    };
+    let k = |x: f64| 1.0 + x * x;
+    for m in 0..=2u32 {
+        let fonte = move |x: f64, t: f64| {
+            let (c, ut) = (1.0 + x, -(-t).exp() * x.cos());
+            let uxx = -(-t).exp() * x.cos() + 2.0;
+            let div = 2.0 * x * ux(x, t) + k(x) * uxx + f64::from(m) * k(x) * ux_x(x, t);
+            c * ut - div
+        };
+        let pde = move |x: f64, t: f64, _u: f64, d: f64| (1.0 + x, k(x) * d, fonte(x, t));
+        let (a, b) = if m == 0 { (0.2, 1.3) } else { (0.0, 1.0) };
+        let bc = move |_xa: f64, ua: f64, _xb: f64, ub: f64, t: f64| {
+            let (pa, qa) = if m == 0 {
+                (ua.powi(3) - ue(a, t).powi(3), 0.0)
+            } else {
+                (0.0, 1.0)
+            };
+            (pa, qa, 2.0 * (ub - ue(b, t)) - k(b) * ux(b, t), 1.0)
+        };
+        // Condição inicial com o extremo de Dirichlet errado em 0,3 (a secante corrige).
+        let ic = move |x: f64| ue(x, 0.0) + if m == 0 && x == a { 0.3 } else { 0.0 };
+        let mut erros = Vec::new();
+        for n in [21, 41] {
+            let x = malha(a, b, n);
+            let tempos = [0.0, 0.5, 1.0];
+            let (u, st) = pde1(m, &pde, &ic, &bc, &x, &tempos, 1e-9).unwrap();
+            assert_eq!(st, OdeStatus::Completed, "m = {m}");
+            if m == 0 {
+                assert!((u[0][0] - ue(a, 0.0)).abs() <= 1e-12, "IC corrigida: {}", u[0][0]);
+            }
+            let mut e = 0.0f64;
+            for (kk, &t) in tempos.iter().enumerate().skip(1) {
+                for (i, &xi) in x.iter().enumerate() {
+                    e = e.max((u[kk][i] - ue(xi, t)).abs());
+                }
+            }
+            erros.push(e);
+        }
+        assert!(erros[1] <= 2e-3, "m = {m}: {erros:?}");
+        assert!(erros[0] / erros[1] > 3.0, "m = {m}: ordem < 2: {erros:?}");
+    }
+}

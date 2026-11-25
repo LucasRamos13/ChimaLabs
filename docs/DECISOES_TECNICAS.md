@@ -492,3 +492,49 @@ Complementa o DT-22 (base 1, blocos por indentação). Respostas às perguntas 2
   - a documentação pública não cita o nome do produto original (DT-19, item 7).
 - **Auditoria antes do push:** busca de nomes de terceiros, caminhos locais, e-mail pessoal, segredos e cabeçalhos de licença copyleft em todos os arquivos; `verificar.sh` completo.
 
+
+## DT-36 — Analisador léxico da linguagem (`chimalab-lang`) · APROVADA (2026-11-25, decisão técnica dentro do DT-22 e do DT-34)
+- **Local:** `chimalab-lang::lexico`, sem dependências. Escrito à mão (o `logos` da Parte B das licenças fica dispensado: a sensibilidade a indentação, ao contexto de `'` e ao espaço dentro de colchetes não se expressa bem em autômatos gerados).
+- **Palavras:** todas saem como identificadores. As palavras-chave são decididas no parser (decididas no DT-39); o léxico não precisa mudar quando elas forem fixadas.
+- **Blocos por indentação** (DT-22): tokens `Indent` e `Dedent` como no Python. Linhas em branco e só de comentário não contam. Tabulação conta até o próximo múltiplo de 4 colunas; uma linha que recua para uma coluna que não abriu bloco é erro `chimalab:lexico:indentacaoInconsistente`. No fim, os blocos abertos são fechados.
+- **Dentro de `(` e `{`** a quebra de linha é ignorada (continuação implícita). **Dentro de `[`** ela vira `Newline`, que o parser trata como separador de linhas da matriz (equivale a `;`).
+- **Espaço significativo dentro de `[ ]`:** cada token guarda se veio depois de espaço. O parser usa isso para separar elementos: `[1 -2]` tem dois elementos e `[1 - 2]` tem um.
+- **`'`** (DT-34, item 32): é transposta se o token anterior termina um valor (identificador, número, texto, `)`, `]`, `}`, `'`, `.'`) e, dentro de colchetes, não há espaço antes; senão, abre um texto.
+- **Números:** decimais com `_` entre dígitos, expoente `e`/`E`, `0x`, `0o` e `0b`, e o sufixo imaginário `i` ou `j` colado (a escolha final é a pergunta 43; o léxico aceita os dois). O texto original é guardado, para inteiros acima de 2⁵³.
+- **Textos:** aspas simples e duplas equivalentes, com escapes `\n`, `\t`, `\r`, `\0`, `\\`, `\'`, `\"` e `\u{…}`; o prefixo `r` desliga os escapes (caminhos do Windows). **f-strings:** `f"…"` com partes `{expr}` e `{expr:formato}` (o primeiro `:` fora de parênteses e colchetes começa o formato; um intervalo dentro da expressão precisa de parênteses), `{{` e `}}` literais. A expressão fica como texto-fonte com a posição, e o parser a analisa recursivamente.
+- **Comentários:** `#` até o fim da linha; `#= … =#` aninhados, podendo atravessar linhas.
+- **Posições:** linha e coluna (1-based, em caracteres) e o intervalo em bytes, para as mensagens de erro com posição (F001).
+- **Erros** com identificador estável `chimalab:lexico:…`: `textoNaoTerminado`, `comentarioNaoTerminado`, `caractereInvalido`, `indentacaoInconsistente`, `numeroInvalido`, `escapeInvalido`, `fstringInvalida`, `delimitadorDesbalanceado`.
+
+## DT-37 — Expressões da linguagem: AST e precedência (`chimalab-lang::sintaxe`) · APROVADA (2026-11-25, decisão técnica revisável)
+- **Escopo deste incremento:** só expressões. Instruções, blocos e operadores lógicos vêm no próximo incremento (DT-39).
+- **Precedência**, da menor para a maior:
+  1. comparação `==`, `!=`, `<`, `<=`, `>`, `>=` — **não associativa**: `a < b < c` é erro de sintaxe com sugestão. No original, a cadeia compara o resultado lógico da primeira com c, um erro clássico; o Python a lê como conjunção, e preferimos não adivinhar;
+  2. intervalo `a:b` e `a:passo:b`;
+  3. aditivos `+`, `-` (à esquerda);
+  4. multiplicativos `*`, `/`, `\`, `.*`, `./`, `.\` (à esquerda);
+  5. sinal `+`, `-` prefixos: `-2^2` é −4, como na notação matemática;
+  6. potência `^`, `.^` **à direita**: `2^3^2` = 2^9, como na matemática, no Python e no Julia (o original associa à esquerda); o expoente pode ter sinal (`2^-1`);
+  7. pós-fixos: transpostas `'` e `.'`, indexação `A[…]`, chamada `f(…)` e membro `.nome` (inclui `.T` e `.H`).
+- **Dentro de `[ ]`:** linhas separadas por `;` ou quebra de linha, elementos por `,` ou espaço. Com espaço, `[1 -2]` tem dois elementos (sinal colado ao número depois de espaço) e `[1 - 2]` um; `[a (1)]` e `[a [1]]` têm dois. A forma aninhada com vírgulas `[[1, 2], [3, 4]]`, em que todos os elementos são literais de matriz, empilha as linhas (DT-34, item 28); com espaços, `[[1 2] [3 4]]` concatena na horizontal.
+- **Índices:** `end` dentro de `A[…]` é o último índice da dimensão; `:` sozinho é "todos". Fora de índices, `end` é erro.
+- **Chamadas:** argumentos posicionais e nomeados (`range(0, 1; length=5)` e `f(x, y=2)`); posicional depois de nomeado é erro.
+- **f-strings:** cada `{expr}` é analisado como expressão, com a posição ajustada para o texto original.
+- **Erros** `chimalab:sintaxe:…`: `tokenInesperado`, `fimInesperado`, `comparacaoEncadeada`, `endForaDeIndice`, `argumentoPosicionalDepoisDeNomeado`, e os léxicos repassados.
+
+## DT-38 — Concatenação no runtime (`horzcat`, `vertcat`, `concat`) · APROVADA (2026-11-25, decisão técnica revisável)
+- **Local:** `chimalab-runtime::concat`. É a semântica dos literais `[A B; C D]` (DT-34, item 28), independente da sintaxe.
+- **Dimensões:** ao longo de `dim` (1-based), todas as outras dimensões iguais, com dimensões finais 1 implícitas; o resultado soma os tamanhos em `dim`. Vazios 0×0 (`[]`) são ignorados; outros vazios (0×3, por exemplo) participam da verificação. Erro `chimalab:runtime:dimensoesIncompativeis` com as duas formas.
+- **Classes:** as da aritmética (DT-32): inteiro domina (com arredondamento e saturação), inteiros de classes diferentes dão erro, `single` domina `double`, complexo só com `double`. Operandos todos lógicos ou todos caracteres mantêm a classe.
+- **Caractere com outra classe é erro** (`classesIncompativeis`), em vez de converter números em caracteres sem aviso, uma armadilha comum (`['a' 66]` virando "aB"). A conversão explícita fica para as funções de texto. Revisável se o modo de compatibilidade precisar do comportamento antigo.
+
+## DT-39 — Construções da linguagem e primeiro interpretador (respostas 40–48) · APROVADA (2026-11-25, decisão do responsável)
+- **Blocos (40.A):** como no Python: `if c:` / `elif c:` / `else:`, `for k in expr:`, `while c:`, `break`, `continue`, `try:` / `except e:`, `match x:` / `case v:`.
+- **`for` sobre matriz (41.A):** percorre as colunas (coincide com os elementos num vetor linha).
+- **Lógicos (42.C):** as duas formas, sem conflito: `and` ≡ `&&` e `or` ≡ `||` com curto-circuito (escalares), `not` ≡ `!` (elemento a elemento em arrays); `&` e `|` elemento a elemento. `!` só é prefixo; o léxico já separa `!=`.
+- **Imaginário (43.A):** sufixo `i` ou `j` colado ao número.
+- **Diferente (44.A):** `!=`; `~=` é erro `chimalab:sintaxe:diferenteComTil` com a sugestão (implementado no parser).
+- **Continuação de linha (45: B pedido, A aplicado por conflito):** a barra invertida já é a divisão à esquerda; como continuação no fim da linha, `[A \`↵`b]` viraria `[A b]` (concatenação silenciosa no lugar do sistema linear). Fica só a continuação implícita dentro de `( )`, `[ ]` e `{ }`, conforme a instrução do responsável para o caso de conflito.
+- **Fim de bloco no console (46.A):** uma linha em branco encerra o bloco (o léxico já detecta a entrada incompleta).
+- **Funções anônimas (47.A):** `x -> x^2` e `(x, y) -> x + y`.
+- **Primeiro interpretador (48.A):** avaliador que percorre a AST, em `chimalab-runtime`, com `ans`, exibição e `;`; o bytecode do DT-03 vem depois de medição de desempenho, verificado contra o avaliador da árvore (que vira oráculo).

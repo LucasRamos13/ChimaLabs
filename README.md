@@ -31,6 +31,7 @@ Requer o toolchain Rust fixado em `rust-toolchain.toml`.
 | [docs/CATALOGO_FUNCIONALIDADES.md](docs/CATALOGO_FUNCIONALIDADES.md) | 162 funcionalidades com critérios de aceitação |
 | [docs/REQUISITOS.md](docs/REQUISITOS.md) | Requisitos não funcionais e funcionais |
 | [docs/MATRIZ_PARIDADE_FUNCIONAL.md](docs/MATRIZ_PARIDADE_FUNCIONAL.md) | Funcionalidade → requisito → módulo → teste → status |
+| [docs/linguagem/](docs/linguagem/README.md) | Especificação da linguagem (estrutura léxica e expressões) |
 | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Arquitetura |
 | [docs/DECISOES_TECNICAS.md](docs/DECISOES_TECNICAS.md) | Decisões técnicas (DT-xx) |
 | [docs/PLANO_DE_DESENVOLVIMENTO.md](docs/PLANO_DE_DESENVOLVIMENTO.md) | Fases e portões |

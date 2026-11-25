@@ -376,3 +376,50 @@ fn parametros_erros() {
     .unwrap();
     assert!(p.is_empty() && s.converged && (s.eval(1.0).unwrap()[0] - (-1f64).exp()).abs() <= 1e-6);
 }
+
+/// Opções e contagens do BVP (mutação): `max_mesh` igual ao tamanho da malha inicial é aceito;
+/// as iterações de Newton são contadas; com `max_mesh` pequeno demais a solução volta com
+/// `converged = false` e a malha não passa do limite.
+#[test]
+fn bvp_opcoes_e_contagens() {
+    // y'' = −y, y(0) = 0, y(π/2) = 1 (solução sen x), linear: Newton converge na 1ª iteração.
+    let f = |_: f64, y: &[f64], d: &mut [f64]| {
+        d[0] = y[1];
+        d[1] = -y[0];
+    };
+    let bc = |ya: &[f64], yb: &[f64], r: &mut [f64]| {
+        r[0] = ya[0];
+        r[1] = yb[0] - 1.0;
+    };
+    let malha: Vec<f64> = (0..=40)
+        .map(|i| std::f64::consts::FRAC_PI_2 * i as f64 / 40.0)
+        .collect();
+    let chute = |x: f64, y: &mut [f64]| {
+        y[0] = x;
+        y[1] = 1.0;
+    };
+    let o = BvpOptions {
+        max_mesh: malha.len(),
+        rel_tol: 1e-3,
+        ..Default::default()
+    };
+    let s = bvp(f, bc, &malha, chute, 2, &o).unwrap();
+    assert!(s.converged);
+    assert!(
+        s.newton_iterations >= 1 && s.newton_iterations <= 3,
+        "{}",
+        s.newton_iterations
+    );
+    assert!(s.x.iter().zip(&s.y).all(|(x, y)| (y[0] - x.sin()).abs() <= 1e-4));
+    // Malha grossa e limite justo: não converge e não cresce além do limite.
+    let grossa = [0.0, std::f64::consts::FRAC_PI_2];
+    let o = BvpOptions {
+        max_mesh: 4,
+        rel_tol: 1e-10,
+        ..Default::default()
+    };
+    let s = bvp(f, bc, &grossa, chute, 2, &o).unwrap();
+    assert!(!s.converged);
+    assert!(s.x.len() <= 4, "{}", s.x.len());
+    assert!(s.newton_iterations >= 1);
+}

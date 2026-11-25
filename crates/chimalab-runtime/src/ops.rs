@@ -2,7 +2,7 @@
 //! comparações, produto matricial e resolução de sistemas.
 
 use chimalab_array::{Complex64, NdArray, broadcast_shape};
-use chimalab_math::linalg::{LinalgWarning, solve};
+use chimalab_math::linalg::{LinalgWarning, RealOrComplex, funm, inv, solve};
 
 use crate::{Class, IntClass, IntData, RuntimeError, Value};
 
@@ -250,17 +250,26 @@ fn int_op(op: BinOp, c: IntClass, a: (Option<i128>, f64), b: (Option<i128>, f64)
     c.from_f64(r)
 }
 
-/// −a. Inteiros saturam (−int8(−128) = 127); lógico e caractere viram double.
+/// −a. Inteiros saturam (−int8(−128) = 127), em aritmética exata; ponto flutuante usa a negação
+/// IEEE (−(+0) = −0, 1/(−0) = −∞); lógico e caractere viram double.
+///
+/// Regressão: −a era calculado como 0 − a, que dá +0 para a = +0 (perdia o sinal do zero).
 pub fn neg(a: &Value) -> Result<Value, RuntimeError> {
-    elementwise(BinOp::Sub, &zero_like(a), a)
-}
-
-fn zero_like(a: &Value) -> Value {
-    match a {
-        Value::Int(d) => Value::Int(IntData::from_i128(d.class(), &[1, 1], vec![0])),
-        Value::Single(_) => Value::Single(NdArray::filled_nd(&[1, 1], 0.0)),
-        _ => Value::scalar(0.0),
-    }
+    Ok(match a {
+        Value::Int(d) => {
+            let c = d.class();
+            let v = d.to_i128().into_iter().map(|x| c.saturate(-x)).collect();
+            Value::Int(IntData::from_i128(c, d.dims(), v))
+        }
+        Value::Single(x) => Value::Single(x.map(|v| -v)),
+        Value::Complex(z) => Value::Complex(z.map(|w| -w)),
+        other => {
+            let x = other.to_f64s()?;
+            Value::Double(
+                NdArray::from_shape_vec(other.dims(), x.into_iter().map(|v| -v).collect()).expect("forma"),
+            )
+        }
+    })
 }
 
 /// Raiz quadrada; reais negativos dão complexo (sqrt(−4) = 2i). Inteiros: arredonda e satura.
@@ -398,25 +407,173 @@ fn real_matrix(v: &Value, op: &'static str) -> Result<NdArray<f64>, RuntimeError
     Ok(NdArray::from_shape_vec(v.dims(), v.to_f64s()?).expect("forma"))
 }
 
-/// Produto matricial A·B (double real; escalares viram produto elemento a elemento).
+/// Classe de uma operação matricial: (complexo, single). Inteiros e arrays N-D são recusados;
+/// `single` complexo também (incremento futuro).
+fn classe_matricial(a: &Value, b: &Value, op: &'static str) -> Result<(bool, bool), RuntimeError> {
+    for v in [a, b] {
+        if v.dims().len() > 2 {
+            return Err(RuntimeError::IncompatibleShapes {
+                operation: op,
+                left: a.dims().to_vec(),
+                right: b.dims().to_vec(),
+            });
+        }
+        if matches!(v, Value::Int(_)) {
+            return Err(RuntimeError::IncompatibleClasses {
+                operation: op,
+                left: a.class().name().into(),
+                right: b.class().name().into(),
+            });
+        }
+    }
+    let complexo = a.is_complex() || b.is_complex();
+    let single = matches!(a, Value::Single(_)) || matches!(b, Value::Single(_));
+    if complexo && single {
+        return Err(RuntimeError::IncompatibleClasses {
+            operation: op,
+            left: a.class().name().into(),
+            right: b.class().name().into(),
+        });
+    }
+    Ok((complexo, single))
+}
+
+fn produto<T>(x: &NdArray<T>, y: &NdArray<T>) -> NdArray<T>
+where
+    T: chimalab_array::Scalar + Copy + std::iter::Sum + std::ops::Mul<Output = T>,
+{
+    let (m, k, n) = (x.rows(), x.cols(), y.cols());
+    NdArray::from_fn(m, n, |i, j| (0..k).map(|l| x.get(i, l) * y.get(l, j)).sum())
+}
+
+/// Produto matricial A·B: double real ou complexo, ou `single` (acumulado em double e
+/// arredondado uma vez); escalares viram produto elemento a elemento. Complexo com parte
+/// imaginária nula volta a real.
+///
+/// Erros: `dimensoesIncompativeis` (colunas de A ≠ linhas de B, ou N-D), `classesIncompativeis`
+/// (inteiros, ou `single` com complexo).
 pub fn mtimes(a: &Value, b: &Value) -> Result<Value, RuntimeError> {
     if a.numel() == 1 || b.numel() == 1 {
         return elementwise(BinOp::Mul, a, b);
     }
-    let (x, y) = (
-        real_matrix(a, "produto matricial")?,
-        real_matrix(b, "produto matricial")?,
-    );
-    if x.cols() != y.rows() {
+    const OP: &str = "produto matricial";
+    let (complexo, single) = classe_matricial(a, b, OP)?;
+    let (ra, ca) = (a.dims()[0], a.dims()[1]);
+    let (rb, cb) = (b.dims()[0], b.dims()[1]);
+    if ca != rb {
         return Err(RuntimeError::IncompatibleShapes {
-            operation: "produto matricial",
+            operation: OP,
             left: a.dims().to_vec(),
             right: b.dims().to_vec(),
         });
     }
-    let (m, k, n) = (x.rows(), x.cols(), y.cols());
-    let c = NdArray::from_fn(m, n, |i, j| (0..k).map(|l| x.get(i, l) * y.get(l, j)).sum());
-    Ok(Value::Double(c))
+    if complexo {
+        let x = NdArray::from_shape_vec(&[ra, ca], a.to_complex()).expect("forma");
+        let y = NdArray::from_shape_vec(&[rb, cb], b.to_complex()).expect("forma");
+        return Ok(simplify(produto(&x, &y)));
+    }
+    let x = NdArray::from_shape_vec(&[ra, ca], a.to_f64s()?).expect("forma");
+    let y = NdArray::from_shape_vec(&[rb, cb], b.to_f64s()?).expect("forma");
+    let c = produto(&x, &y);
+    Ok(if single {
+        Value::Single(c.map(|v| *v as f32))
+    } else {
+        Value::Double(c)
+    })
+}
+
+fn converte_avisos(ws: &[LinalgWarning]) -> Vec<Warning> {
+    ws.iter()
+        .map(|w| match w {
+            LinalgWarning::Singular | LinalgWarning::RankDeficient { .. } => {
+                Warning::SingularMatrix { rcond: 0.0 }
+            }
+            LinalgWarning::NearlySingular { rcond } => Warning::SingularMatrix { rcond: *rcond },
+        })
+        .collect()
+}
+
+fn de_matfun(r: RealOrComplex) -> Value {
+    match r {
+        RealOrComplex::Real(m) => Value::Double(m),
+        RealOrComplex::Complex(z) => simplify(z),
+    }
+}
+
+/// Potência de matriz `A^p` (F005):
+/// - escalar com escalar: a potência elemento a elemento;
+/// - matriz quadrada com expoente inteiro: quadrados sucessivos (exato para matrizes inteiras
+///   enquanto os valores couberem em 2⁵³); expoente negativo usa a inversa, com o aviso de matriz
+///   singular; `A^0` é a identidade;
+/// - expoente não inteiro: função de matriz z^p pelo método de Schur–Parlett (F040), com o ramo
+///   principal (resultado complexo quando A tem autovalores negativos);
+/// - escalar com matriz: s^B = exp(B·ln s), também por Schur–Parlett.
+///
+/// Erros: `dimensoesIncompativeis` (matriz não quadrada, ou matriz com matriz),
+/// `classesIncompativeis` (complexo, inteiro ou single em potência de matriz).
+pub fn mpower(a: &Value, b: &Value) -> Result<(Value, Vec<Warning>), RuntimeError> {
+    const OP: &str = "potência matricial";
+    if a.numel() == 1 && b.numel() == 1 {
+        return Ok((elementwise(BinOp::Pow, a, b)?, Vec::new()));
+    }
+    let forma = || RuntimeError::IncompatibleShapes {
+        operation: OP,
+        left: a.dims().to_vec(),
+        right: b.dims().to_vec(),
+    };
+    if a.numel() != 1 && b.numel() != 1 {
+        return Err(forma());
+    }
+    let (m, escalar, base_matriz) = if b.numel() == 1 {
+        (real_matrix(a, OP)?, real_matrix(b, OP)?.get(0, 0), true)
+    } else {
+        (real_matrix(b, OP)?, real_matrix(a, OP)?.get(0, 0), false)
+    };
+    if m.dims().len() != 2 || m.rows() != m.cols() {
+        return Err(forma());
+    }
+    let n = m.rows();
+    let erro = |e: chimalab_math::linalg::LinalgError| RuntimeError::Math(e.to_string());
+    if base_matriz {
+        let p = escalar;
+        if p.fract() == 0.0 && p.abs() <= 9_007_199_254_740_992.0 {
+            let (mut base, avisos) = if p < 0.0 {
+                let (inv_a, w) = inv(&m).map_err(erro)?;
+                (inv_a, converte_avisos(&w))
+            } else {
+                (m.clone(), Vec::new())
+            };
+            let mut k = p.abs() as u64;
+            let mut acc = NdArray::from_fn(n, n, |i, j| if i == j { 1.0 } else { 0.0 });
+            let produto = |x: &NdArray<f64>, y: &NdArray<f64>| {
+                NdArray::from_fn(n, n, |i, j| (0..n).map(|l| x.get(i, l) * y.get(l, j)).sum())
+            };
+            while k > 0 {
+                if k & 1 == 1 {
+                    acc = produto(&acc, &base);
+                }
+                k >>= 1;
+                if k > 0 {
+                    base = produto(&base, &base);
+                }
+            }
+            return Ok((Value::Double(acc), avisos));
+        }
+        // z^p e as derivadas p(p−1)…(p−k+1)·z^(p−k), ramo principal.
+        let r = funm(&m, |z: Complex64, k: usize| {
+            let coef: f64 = (0..k).map(|j| p - j as f64).product();
+            Complex64::new(coef, 0.0) * z.powc(Complex64::new(p - k as f64, 0.0))
+        })
+        .map_err(erro)?;
+        return Ok((de_matfun(r.value), converte_avisos(&r.warnings)));
+    }
+    // s^B: derivadas s^z·(ln s)^k, com o logaritmo principal (s < 0 dá complexo).
+    let ln_s = Complex64::new(escalar, 0.0).ln();
+    let r = funm(&m, |z: Complex64, k: usize| {
+        (z * ln_s).exp() * ln_s.powu(k as u32)
+    })
+    .map_err(erro)?;
+    Ok((de_matfun(r.value), converte_avisos(&r.warnings)))
 }
 
 /// A\B: resolve A·X = B escolhendo o método pela estrutura (F040). Matriz singular ou mal
@@ -425,26 +582,48 @@ pub fn mldivide(a: &Value, b: &Value) -> Result<(Value, Vec<Warning>), RuntimeEr
     if a.numel() == 1 {
         return Ok((elementwise(BinOp::LeftDiv, a, b)?, Vec::new()));
     }
-    let (x, y) = (real_matrix(a, "\\")?, real_matrix(b, "\\")?);
-    if x.rows() != y.rows() {
+    let (complexo, single) = classe_matricial(a, b, "\\")?;
+    if single {
+        // `single` em sistemas lineares: incremento futuro (a fatoração é em double).
+        return Err(RuntimeError::IncompatibleClasses {
+            operation: "\\",
+            left: a.class().name().into(),
+            right: b.class().name().into(),
+        });
+    }
+    if a.dims()[0] != b.dims()[0] {
         return Err(RuntimeError::IncompatibleShapes {
             operation: "\\",
             left: a.dims().to_vec(),
             right: b.dims().to_vec(),
         });
     }
+    if complexo {
+        let x = NdArray::from_shape_vec(&a.dims()[..2], a.to_complex()).expect("forma");
+        let y = NdArray::from_shape_vec(&b.dims()[..2], b.to_complex()).expect("forma");
+        let s = solve(&x, &y).map_err(|e| RuntimeError::Math(e.to_string()))?;
+        return Ok((simplify(s.x), converte_avisos(&s.warnings)));
+    }
+    let (x, y) = (real_matrix(a, "\\")?, real_matrix(b, "\\")?);
     let s = solve(&x, &y).map_err(|e| RuntimeError::Math(e.to_string()))?;
-    let warnings = s
-        .warnings
-        .iter()
-        .map(|w| match w {
-            LinalgWarning::Singular | LinalgWarning::RankDeficient { .. } => {
-                Warning::SingularMatrix { rcond: 0.0 }
-            }
-            LinalgWarning::NearlySingular { rcond } => Warning::SingularMatrix { rcond: *rcond },
-        })
-        .collect();
-    Ok((Value::Double(s.x), warnings))
+    Ok((Value::Double(s.x), converte_avisos(&s.warnings)))
+}
+
+/// A/B: resolve X·B = A pela identidade A/B = (Bᵀ \ Aᵀ)ᵀ (com B escalar, a divisão elemento a
+/// elemento). Mesmos avisos e erros de [`mldivide`], com as formas na ordem de A/B.
+pub fn mrdivide(a: &Value, b: &Value) -> Result<(Value, Vec<Warning>), RuntimeError> {
+    if b.numel() == 1 {
+        return Ok((elementwise(BinOp::Div, a, b)?, Vec::new()));
+    }
+    if a.dims().len() == 2 && b.dims().len() == 2 && a.dims()[1] != b.dims()[1] {
+        return Err(RuntimeError::IncompatibleShapes {
+            operation: "/",
+            left: a.dims().to_vec(),
+            right: b.dims().to_vec(),
+        });
+    }
+    let (x, w) = mldivide(&transpose(b, false)?, &transpose(a, false)?)?;
+    Ok((transpose(&x, false)?, w))
 }
 
 /// Operação lógica elemento a elemento.
@@ -570,5 +749,32 @@ pub fn colon(start: f64, step: f64, stop: f64) -> Value {
     {
         *ultimo = stop;
     }
+    Value::doubles(&[1, n], v)
+}
+
+/// `n` pontos igualmente espaçados de `a` a `b`, com os dois extremos exatos (a semântica de
+/// `range(a, b; length=n)`, DT-34). n = 0 dá vetor vazio 1×0; n = 1 dá `[b]`. Quando b − a
+/// estoura (extremos de sinais opostos perto do maior f64), usa a·(1 − t) + b·t.
+pub fn linspace(a: f64, b: f64, n: usize) -> Value {
+    if n == 0 {
+        return Value::doubles(&[1, 0], Vec::new());
+    }
+    if n == 1 {
+        return Value::doubles(&[1, 1], vec![b]);
+    }
+    let m = (n - 1) as f64;
+    let passo = (b - a) / m;
+    let v: Vec<f64> = (0..n)
+        .map(|k| {
+            if k == n - 1 {
+                b
+            } else if passo.is_finite() {
+                a + k as f64 * passo
+            } else {
+                let t = k as f64 / m;
+                a * (1.0 - t) + b * t
+            }
+        })
+        .collect();
     Value::doubles(&[1, n], v)
 }

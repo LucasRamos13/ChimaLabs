@@ -133,7 +133,11 @@ pub fn voronoi_clipped(d: &Delaunay, bbox: [f64; 4]) -> Vec<(usize, Polygon)> {
     for p in d.points() {
         ext = ext.max(p[0].abs() + p[1].abs());
     }
-    let longe = 4.0 * ext + 1.0;
+    // Proporcional às coordenadas (sem parcela absoluta). Regressão: com `4·ext + 1`, em escala
+    // ~1e-9 os raios ficavam 1e8 vezes maiores que a caixa, a tolerância de encaixe das
+    // booleanas (relativa à maior coordenada) ficava grosseira perto das células, e as áreas
+    // erravam em até 1e-8 relativo.
+    let longe = if ext > 0.0 { 4.0 * ext } else { 1.0 };
     voronoi(d)
         .into_iter()
         .map(|c| {

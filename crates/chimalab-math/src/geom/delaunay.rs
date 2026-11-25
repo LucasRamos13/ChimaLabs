@@ -410,3 +410,28 @@ impl Delaunay {
         [l0, l1, 1.0 - l0 - l1]
     }
 }
+
+#[cfg(test)]
+mod testes_criterio {
+    use super::*;
+
+    /// `is_delaunay` recusa uma triangulação válida que viola o critério: a diagonal A–C do
+    /// quadrilátero, com D dentro do círculo por A, B, C (mutação: a verificação nunca era
+    /// exercitada com resposta falsa).
+    #[test]
+    fn criterio_recusa_diagonal_errada() {
+        let points = vec![[0.0, 0.0], [4.0, 0.0], [4.0, 1.0], [0.5, 1.2]];
+        assert!(incircle(points[0], points[1], points[2], points[3]) > 0.0);
+        // T0 = [A, B, C], T1 = [A, C, D]; aresta comum A–C (oposta a B em T0 e a D em T1).
+        let errada = Delaunay {
+            points: points.clone(),
+            triangles: vec![[0, 1, 2], [0, 2, 3]],
+            neighbors: vec![[NONE, 1, NONE], [NONE, NONE, 0]],
+            duplicates: vec![],
+        };
+        assert!(!errada.is_delaunay());
+        let certa = Delaunay::new(&points).unwrap();
+        assert!(certa.is_delaunay());
+        assert_eq!(certa.triangles().len(), 2);
+    }
+}

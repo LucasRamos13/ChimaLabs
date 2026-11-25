@@ -24,8 +24,8 @@ Relaciona cada funcionalidade identificada (ID da análise) ao requisito indepen
 | NÃO INVESTIGADA | 0 |
 | INVESTIGADA PARCIALMENTE | 12 |
 | DOCUMENTADA | 0 |
-| PLANEJADA | 131 |
-| EM DESENVOLVIMENTO | 17 |
+| PLANEJADA | 130 |
+| EM DESENVOLVIMENTO | 18 |
 | IMPLEMENTADA | 1 |
 | TESTADA | 0 |
 | VALIDADA | 0 |
@@ -37,7 +37,7 @@ Relaciona cada funcionalidade identificada (ID da análise) ao requisito indepen
 
 | ID | Necessidade funcional | Comportamento esperado | Requisito | Módulo | Estratégia | Dependências permitidas | Critérios | Testes | Complex. | Viabilidade | Situação jurídica | Fase | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| F001 | Exploração rápida de dados e cálculos sem compilar. | Cada linha é analisada e executada; ponto-e-vírgula suprime exibição; resultado sem atribuição vai para variável implícita 'ans'. | RF-001 | `chimalab-lang / chimalab-runtime` | Parser recursivo-descendente próprio + interpretador sobre AST/bytecode; REPL com detecção de bloco incompleto. Módulo: `chimalab-lang / chi… | Rust std; logos (MIT/Apache-2.0) ou lexer próprio; cranelift (Apache-2.0 WITH LLVM-excepti… | 4 CA | TF-001 (Unitário, Integração, Desempenho, Regressão) | Alta | Média | Pendente (compatibilidade de linguagem) | 2 | **PLANEJADA** |
+| F001 | Exploração rápida de dados e cálculos sem compilar. | Cada linha é analisada e executada; ponto-e-vírgula suprime exibição; resultado sem atribuição vai para variável implícita 'ans'. | RF-001 | `chimalab-lang / chimalab-runtime` | Parser recursivo-descendente próprio + interpretador sobre AST/bytecode; REPL com detecção de bloco incompleto. Módulo: `chimalab-lang / chi… | Rust std; logos (MIT/Apache-2.0) ou lexer próprio; cranelift (Apache-2.0 WITH LLVM-excepti… | 4 CA | TF-001 (Unitário, Integração, Desempenho, Regressão) | Alta | Média | Pendente (compatibilidade de linguagem) | 2 | **EM DESENVOLVIMENTO** |
 | F002 | Reutilização e organização de código. | Funções com múltiplas entradas/saídas, nargin/nargout, varargin/varargout, funções locais, aninhadas com compartilhamento de escopo, scripts operando no workspa… | RF-002 | `chimalab-lang / chimalab-runtime` | Cache de AST por arquivo com invalidação por mtime/hash; tabela de resolução por escopo. Módulo: `chimalab-lang / chimalab-runtime`. | Rust std; logos (MIT/Apache-2.0) ou lexer próprio; cranelift (Apache-2.0 WITH LLVM-excepti… | 3 CA | TF-002 (Unitário, Integração, Regressão) | Alta | Média | Pendente (compatibilidade de linguagem) | 2 | **PLANEJADA** |
 | F003 | Precisão e economia de memória adequadas ao problema. | Aritmética mista com regras de tipo dominante; inteiros saturam e arredondam; complexo automático em operações que exigem (sqrt(-1)). | RF-003 | `chimalab-lang / chimalab-runtime` | Implementação própria a partir deste requisito, usando algoritmos/padrões publicados. Módulo: `chimalab-lang / chimalab-runtime`. | Rust std; logos (MIT/Apache-2.0) ou lexer próprio; cranelift (Apache-2.0 WITH LLVM-excepti… | 4 CA | TF-003 (Unitário, Integração, Regressão) | Alta | Média | Sem restrição específica | 2 | **EM DESENVOLVIMENTO** |
 | F004 | Manipulação vetorizada de dados. | Ordem column-major; atribuição fora dos limites expande com zeros; atribuição de [] remove elementos; dimensões singleton finais ignoradas. | RF-004 | `chimalab-lang / chimalab-runtime` | Implementação própria a partir deste requisito, usando algoritmos/padrões publicados. Módulo: `chimalab-lang / chimalab-runtime`. | Rust std; logos (MIT/Apache-2.0) ou lexer próprio; cranelift (Apache-2.0 WITH LLVM-excepti… | 4 CA | TF-004 (Unitário, Integração, Regressão) | Muito alta | Média/Baixa (esforço elevado) | Sem restrição específica | 2 | **EM DESENVOLVIMENTO** |

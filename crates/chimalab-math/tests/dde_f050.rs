@@ -512,3 +512,144 @@ fn retardo_constante_pelo_caminho_variavel_e_erros() {
     .unwrap();
     assert_eq!(lim.status, OdeStatus::MaxSteps);
 }
+
+/// Solução exata de y′(t) = −y(t − 1), y = 1 para t ≤ 0 (método dos passos):
+/// y(t) = Σₖ (−1)ᵏ (t − k + 1)ᵏ / k!, com k de 0 a ⌊t⌋ + 1.
+fn y_atraso_unitario(t: f64) -> f64 {
+    let mut s = 0.0;
+    let mut fat = 1.0;
+    for k in 0..=(t.floor() as i32 + 1) {
+        if k > 0 {
+            fat *= f64::from(k);
+        }
+        let base = t - f64::from(k) + 1.0;
+        if base >= 0.0 {
+            s += f64::from(if k % 2 == 0 { 1 } else { -1 }) * base.powi(k) / fat;
+        }
+    }
+    s
+}
+
+/// Estrutura do integrador com retardos constantes (mutação): os pontos de quebra
+/// t₀ + Σ mⱼτⱼ (Σ mⱼ ≤ 3) entram exatamente na malha, também com dois retardos e somas
+/// coincidentes; precisão com tolerância apertada contra a solução exata; `max_steps`
+/// respeitado; tolerância absoluta vetorial; intervalo vazio é erro.
+#[test]
+fn dde_quebras_precisao_e_opcoes() {
+    use chimalab_math::ode::dde;
+    // Um retardo, t₀ = 0: quebras 1, 2, 3 na malha; erro ≤ 1e-7 com rtol = 1e-10.
+    let mut o = opts(1e-10);
+    let s = dde(
+        |_, _, z, dy| dy[0] = -z[0][0],
+        &[1.0],
+        |_, y| y[0] = 1.0,
+        [0.0, 4.5],
+        1,
+        &mut o,
+    )
+    .unwrap();
+    assert_eq!(s.status, OdeStatus::Completed);
+    for q in [1.0, 2.0, 3.0] {
+        assert!(s.t.contains(&q), "quebra {q} fora da malha");
+    }
+    for (t, y) in s.t.iter().zip(&s.y) {
+        assert!(
+            (y[0] - y_atraso_unitario(*t)).abs() <= 1e-8,
+            "t = {t}: {} vs {}",
+            y[0],
+            y_atraso_unitario(*t)
+        );
+    }
+    // t₀ = 10 (quebras deslocadas) e retardo maior que o intervalo.
+    let mut o = opts(1e-10);
+    let s = dde(
+        |_, _, z, dy| dy[0] = -z[0][0],
+        &[1.0],
+        |_, y| y[0] = 1.0,
+        [10.0, 13.0],
+        1,
+        &mut o,
+    )
+    .unwrap();
+    for q in [11.0, 12.0] {
+        assert!(s.t.contains(&q), "quebra {q} fora da malha");
+    }
+    assert!((s.y.last().unwrap()[0] - y_atraso_unitario(3.0)).abs() <= 1e-8);
+    let mut o = opts(1e-8);
+    let s = dde(
+        |_, _, z, dy| dy[0] = -z[0][0],
+        &[5.0],
+        |_, y| y[0] = 1.0,
+        [10.0, 11.0],
+        1,
+        &mut o,
+    )
+    .unwrap();
+    assert!((s.y.last().unwrap()[0] - 0.0).abs() <= 1e-9, "{:?}", s.y.last());
+    // Dois retardos (1 e 1,5): quebras 1; 1,5; 2; 2,5; 3 (de 1+1+1 e 1,5+1,5); 3,5; 4; 4,5.
+    let mut o = opts(1e-8);
+    let s = dde(
+        |_, _, z, dy| dy[0] = -0.5 * z[0][0] - 0.25 * z[1][0],
+        &[1.0, 1.5],
+        |_, y| y[0] = 1.0,
+        [0.0, 4.8],
+        1,
+        &mut o,
+    )
+    .unwrap();
+    for q in [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5] {
+        assert!(s.t.contains(&q), "quebra {q} fora da malha");
+    }
+    assert_eq!(s.t.iter().filter(|&&t| t == 3.0).count(), 1, "quebra repetida");
+    // max_steps exato.
+    let mut o = OdeOptions {
+        max_steps: Some(3),
+        ..opts(1e-8)
+    };
+    let s = dde(
+        |_, _, z, dy| dy[0] = -z[0][0],
+        &[1.0],
+        |_, y| y[0] = 1.0,
+        [0.0, 4.0],
+        1,
+        &mut o,
+    )
+    .unwrap();
+    assert_eq!((s.status, s.stats.steps), (OdeStatus::MaxSteps, 3));
+    // Tolerância absoluta vetorial com o tamanho certo; intervalo vazio.
+    let mut o = OdeOptions {
+        abs_tol: Some(AbsTol::Vector(vec![1e-10, 1e-10])),
+        rel_tol: Some(1e-8),
+        ..Default::default()
+    };
+    let s = dde(
+        |_, y, z, dy| {
+            dy[0] = -z[0][0];
+            dy[1] = y[0];
+        },
+        &[1.0],
+        |_, y| {
+            y[0] = 1.0;
+            y[1] = 0.0;
+        },
+        [0.0, 2.0],
+        2,
+        &mut o,
+    )
+    .unwrap();
+    // y₂ = ∫ y₁: ∫₀¹ (1 − t) dt + ∫₁² (1 − t + (t − 1)²/2) dt = 1/2 − 1/2 + 1/6 = 1/6.
+    assert!(
+        (s.y.last().unwrap()[1] - 1.0 / 6.0).abs() <= 1e-7,
+        "{:?}",
+        s.y.last()
+    );
+    let r = dde(
+        |_, _, z, dy| dy[0] = -z[0][0],
+        &[1.0],
+        |_, y| y[0] = 1.0,
+        [1.0, 1.0],
+        1,
+        &mut opts(1e-6),
+    );
+    assert_eq!(r.unwrap_err().id(), "chimalab:ode:intervaloInvalido");
+}

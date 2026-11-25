@@ -98,3 +98,58 @@ Os blocos numéricos do DT-21 já começaram. O próximo passo é a linguagem (F
 - **38: repositório público novo** (`LucasRamos13/ChimaLabs`), criado pelo responsável, com o estado atual num commit inicial, sem o histórico privado (DT-35).
 - **39: o material da investigação em sala limpa fica fora do repositório público**, guardado localmente pelo responsável.
 
+
+## Perguntas 40–48 (decididas em 2026-11-25, ver DT-39): construções da linguagem e primeiro interpretador
+**Respostas:** 40.A, 41.A, 42.C, 43.A, 44.A, 45.B pedida e A aplicada (conflito com a barra invertida, conforme a instrução do responsável), 46.A, 47.A, 48.A.
+
+O léxico (DT-36) já está pronto e não depende destas respostas; o parser e o interpretador (F001, F002, F006) dependem. Cada pergunta traz uma recomendação; **P** significa "pesquise e decida pela opção mais racional".
+- **40. Palavras de bloco:**
+  - A: como no Python: `if c:` / `elif c:` / `else:`, `for k in expr:`, `while c:`, `break`, `continue`, `try:` / `except e:`, `match x:` / `case v:` para o `switch`;
+  - B: palavras do original com dois-pontos (`elseif`, `switch`/`case`/`otherwise`, `catch`);
+  - P.
+  - *Recomendação: A.* Coerente com a indentação e com `def`/`return` (DT-34).
+- **41. `for` sobre matriz:**
+  - A: percorre as colunas (o CA do F006: `for k in [1 2; 3 4]` itera 2 vezes, com colunas);
+  - B: percorre os elementos em ordem de coluna;
+  - P.
+  - *Recomendação: A*, que coincide com B para vetores linha, o caso mais comum.
+- **42. Operadores lógicos:**
+  - A: `and`, `or`, `not` com curto-circuito sobre escalares, mais `&`, `|`, `!` elemento a elemento;
+  - B: `&&`, `||`, `!` com curto-circuito e `&`, `|` elemento a elemento;
+  - C: as duas formas;
+  - P.
+  - *Recomendação: A.* Lê como o Python e separa bem o lógico escalar do elemento a elemento.
+- **43. Literal imaginário:**
+  - A: `2i` e `2j`;
+  - B: só `2im` (Julia);
+  - C: só `2j` (Python);
+  - P.
+  - *Recomendação: A*, sem prejuízo para nomes como `i` e `j` em laços (o sufixo só vale colado ao número).
+- **44. Diferente:**
+  - A: `!=`, com `~=` dando erro que sugere `!=`;
+  - B: `~=`;
+  - C: os dois;
+  - P.
+  - *Recomendação: A.*
+- **45. Continuação de linha:**
+  - A: só implícita, dentro de `( )`, `[ ]` e `{ }`;
+  - B: também `\` no fim da linha;
+  - C: também `...`;
+  - P.
+  - *Recomendação: A.* `\` já é a divisão à esquerda, e `...` lembra o original sem ganho.
+- **46. Fim de bloco no console:**
+  - A: uma linha em branco encerra o bloco (como no console do Python);
+  - B: palavra `end` opcional;
+  - P.
+  - *Recomendação: A.* O léxico já detecta a entrada incompleta (`incomplete`); o CA do F001 vira "o bloco só executa depois da linha em branco".
+- **47. Funções anônimas:**
+  - A: `x -> x^2` e `(x, y) -> x + y` (Julia);
+  - B: `lambda x: x^2` (Python);
+  - C: `@(x) x^2`;
+  - P.
+  - *Recomendação: A.* Curta e legível; o `@` fica livre para decoradores ou anotações.
+- **48. Primeiro interpretador:**
+  - A: avaliador que percorre a árvore de sintaxe (AST), em `chimalab-runtime`, já com `ans`, exibição e `;`, para o console funcionar logo; o bytecode do DT-03 vem depois, quando houver medição de desempenho que o justifique;
+  - B: bytecode e máquina virtual desde o início (DT-03), com o console só depois;
+  - P.
+  - *Recomendação: A.* Entrega o console (CAs do F001) cedo e define a semântica por testes; o bytecode passa a ser uma otimização verificada contra o avaliador da árvore, que vira oráculo.

@@ -25,7 +25,7 @@ Requisitos redigidos de forma independente a partir das necessidades funcionais.
 
 ## Requisitos funcionais (RF)
 
-### RF-001 — Interpretador interativo (janela de comandos) (origem: F001, status PLANEJADA)
+### RF-001 — Interpretador interativo (janela de comandos) (origem: F001, status EM DESENVOLVIMENTO)
 
 O sistema deve oferecer: Avaliação interativa de expressões e comandos com exibição automática de resultados.
 

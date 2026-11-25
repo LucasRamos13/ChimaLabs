@@ -334,9 +334,37 @@ fn assemble(edges: Vec<([f64; 2], [f64; 2])>) -> Vec<Vec<[f64; 2]>> {
             usado[prox] = true;
             atual = prox;
         }
-        if anel.len() >= 3 && polygon_area(&anel) != 0.0 {
-            aneis.push(anel);
+        for laco in separa_toques(anel) {
+            if laco.len() >= 3 && polygon_area(&laco) != 0.0 {
+                aneis.push(laco);
+            }
         }
     }
     aneis
+}
+
+/// Quebra um anel nos vértices repetidos: cada laço entre duas passagens pelo mesmo vértice vira
+/// um anel, com a orientação que tinha. A área com sinal e a localização par-ímpar não mudam, e
+/// os anéis saem simples. Regressão: regiões que só se tocam num vértice (dois quadrados pelo
+/// canto, ou um furo que toca a borda externa) saíam num anel em forma de 8. Nenhuma regra de
+/// giro sozinha evita os dois casos: a curva mais à direita funde os quadrados, a mais à
+/// esquerda funde o furo na borda.
+fn separa_toques(anel: Vec<[f64; 2]>) -> Vec<Vec<[f64; 2]>> {
+    let bits = |p: [f64; 2]| [p[0].to_bits(), p[1].to_bits()];
+    let mut pilha: Vec<[f64; 2]> = Vec::with_capacity(anel.len());
+    let mut posicao: HashMap<[u64; 2], usize> = HashMap::new();
+    let mut lacos = Vec::new();
+    for p in anel {
+        if let Some(&i) = posicao.get(&bits(p)) {
+            let laco: Vec<[f64; 2]> = pilha.drain(i..).collect();
+            for q in &laco {
+                posicao.remove(&bits(*q));
+            }
+            lacos.push(laco);
+        }
+        posicao.insert(bits(p), pilha.len());
+        pilha.push(p);
+    }
+    lacos.push(pilha);
+    lacos
 }

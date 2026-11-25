@@ -52,7 +52,7 @@ Catálogo funcional em **sala limpa**. Comportamentos descrevem necessidades e r
 | 17. Restrições técnicas | — |
 | 18. Restrições jurídicas | Comportamento funcional e nomes de funções/sintaxe: compatibilidade de linguagem é questão PENDENTE de avaliação jurídica (ver LICENCAS_E_RESTRICOES.txt §15, Q2). Nenhum texto/código do original pode ser usado. |
 
-*Status:* **PLANEJADA**
+*Status:* **EM DESENVOLVIMENTO**
 
 ### F002 — Scripts e funções em arquivo
 

@@ -1,4 +1,9 @@
-//! Léxico, parser, AST e análise semântica da linguagem ChimaLab
+//! Léxico, parser, AST e análise semântica da linguagem ChimaLab.
 //!
-//! Esqueleto da Fase 1: sem implementação. Funcionalidades atribuídas a este
-//! módulo estão em docs/MATRIZ_PARIDADE_FUNCIONAL.md (coluna "Módulo").
+//! - [`lexico`]: analisador léxico (DT-36);
+//! - [`sintaxe`]: expressões e AST (DT-37).
+//!
+//! Instruções e blocos (DT-39) vêm no próximo incremento.
+
+pub mod lexico;
+pub mod sintaxe;

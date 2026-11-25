@@ -1207,3 +1207,517 @@ proptest! {
         prop_assert!(custo(&achado) <= melhor + 1e-9 * melhor.abs().max(1.0), "{} vs {}", custo(&achado), melhor);
     }
 }
+
+/// Histograma automático: largura de cada regra pelas definições e o arredondamento "redondo"
+/// (mutação; antes só a soma das contagens era conferida). Valores esperados à mão:
+/// x = 0..99 (n = 100, amplitude 99, σ = 29,0115, IQR entre 49,5 e 50 conforme a interpolação):
+/// Sturges 99/8 = 12,4 → 20; √n: 9,9 → 10; Scott 3,49·σ·n^{−1/3} = 21,8 → 25; Freedman–Diaconis
+/// 2·IQR·n^{−1/3} ≈ 21,4 → 25.
+#[test]
+fn histograma_automatico_larguras_das_regras() {
+    let larg = |e: &[f64]| e[1] - e[0];
+    let x: Vec<f64> = (0..100).map(f64::from).collect();
+    for (regra, w) in [
+        (BinRule::Sturges, 20.0),
+        (BinRule::Sqrt, 10.0),
+        (BinRule::Scott, 25.0),
+        (BinRule::FreedmanDiaconis, 25.0),
+    ] {
+        let (c, e) = histcounts_auto(&x, regra);
+        assert_eq!(larg(&e), w, "{regra:?}: {e:?}");
+        assert_eq!(e[0], 0.0, "{regra:?}");
+        assert!(
+            e[e.len() - 2] < 99.0 && *e.last().unwrap() >= 99.0,
+            "{regra:?}: {e:?}"
+        );
+        assert_eq!(c.iter().sum::<usize>(), 100);
+    }
+    // Deslocado para negativos: a primeira borda é o múltiplo da largura logo abaixo do mínimo.
+    let xd: Vec<f64> = x.iter().map(|v| v - 37.2).collect();
+    let (_, e) = histcounts_auto(&xd, BinRule::Sturges);
+    assert_eq!((e[0], larg(&e)), (-40.0, 20.0), "{e:?}");
+    // IQR nulo no Freedman–Diaconis: cai no Scott (3,49·0,408·6^{−1/3} = 0,784 → 1).
+    let (_, e) = histcounts_auto(&[1.0, 1.0, 1.0, 1.0, 1.0, 2.0], BinRule::FreedmanDiaconis);
+    assert_eq!(larg(&e), 1.0, "{e:?}");
+    // Arredondamento: n = 4 com √n → amplitude/2. 2,5 fica 2,5; 0,0123 vai a 0,02; 7 vai a 10.
+    for (amp, w) in [(5.0, 2.5), (0.0246, 0.02), (14.0, 10.0), (3.0, 2.0), (0.2, 0.1)] {
+        let (_, e) = histcounts_auto(&[0.0, amp / 3.0, amp / 2.0, amp], BinRule::Sqrt);
+        assert!((larg(&e) - w).abs() <= 1e-15 * w, "amplitude {amp}: {e:?}");
+    }
+    // No máximo 10⁶ intervalos: um valor extremo força a largura mínima amplitude/10⁶ = 1000.
+    let mut y: Vec<f64> = (0..1000).map(|i| i as f64 / 1000.0).collect();
+    y.push(1e9);
+    let (c, e) = histcounts_auto(&y, BinRule::FreedmanDiaconis);
+    assert_eq!(larg(&e), 1000.0);
+    assert!(c.len() <= 1_000_001 && c.iter().sum::<usize>() == 1001);
+}
+
+/// Valores de `isoutlier`, `filloutliers`, `normalize` e `rescale` (mutação; antes só as
+/// máscaras eram conferidas). Os limites são recompostos aqui a partir da mediana, do MAD
+/// (mediana de |x − mediana|, por ordenação), da média, do desvio e dos quartis.
+#[test]
+fn outliers_e_normalizacao_valores() {
+    let mad_normal = 1.0 / (std::f64::consts::SQRT_2 * 0.476_936_276_204_469_9); // 1/(√2·erfinv(½))
+    let x = [2.0, 3.0, 3.5, 4.0, 5.0, 5.5, 40.0, 6.0, 1.0];
+    let mut s = x.to_vec();
+    s.sort_by(f64::total_cmp);
+    let med = s[4];
+    let mut d: Vec<f64> = x.iter().map(|v| (v - med).abs()).collect();
+    d.sort_by(f64::total_cmp);
+    let mad = d[4];
+    for t in [1.5, 3.0] {
+        let (_, b) = isoutlier(&x, OutlierMethod::Median(t)).unwrap();
+        let sc = mad_normal * mad;
+        assert!(
+            (b.lower - (med - t * sc)).abs() <= 1e-13
+                && (b.upper - (med + t * sc)).abs() <= 1e-13
+                && b.center == med,
+            "{b:?}"
+        );
+        let (_, b) = isoutlier(&x, OutlierMethod::Mean(t)).unwrap();
+        let (m, sd) = (mean(&x, NanFlag::Omit), std(&x, VarNorm::Sample, NanFlag::Omit));
+        assert!(
+            (b.lower - (m - t * sd)).abs() <= 1e-13
+                && (b.upper - (m + t * sd)).abs() <= 1e-13
+                && b.center == m,
+            "{b:?}"
+        );
+        let (_, b) = isoutlier(&x, OutlierMethod::Quartiles(t)).unwrap();
+        let q = quantile(&x, &[0.25, 0.75], QuantileType::default(), NanFlag::Omit).unwrap();
+        let iq = q[1] - q[0];
+        assert!(
+            (b.lower - (q[0] - t * iq)).abs() <= 1e-13 && (b.upper - (q[1] + t * iq)).abs() <= 1e-13,
+            "{b:?}"
+        );
+        assert!((b.center - (q[0] + q[1]) / 2.0).abs() <= 1e-15, "{b:?}");
+    }
+    // Escalas por MAD e IQR no normalize.
+    let z = normalize(&x, NormalizeMethod::Scale(ScaleBy::Mad)).unwrap();
+    assert!((z[6] - 40.0 / (mad_normal * mad)).abs() <= 1e-13, "{}", z[6]);
+    let q = quantile(&x, &[0.25, 0.75], QuantileType::default(), NanFlag::Omit).unwrap();
+    let z = normalize(&x, NormalizeMethod::Scale(ScaleBy::Iqr)).unwrap();
+    assert!((z[6] - 40.0 / (q[1] - q[0])).abs() <= 1e-13, "{}", z[6]);
+    // Norma p, inclusive p = 1 e valores enormes (escala pelo maior |x| antes de elevar).
+    for (p, nrm) in [(1.0, 7.0), (2.0, 5.0), (3.0, (27.0f64 + 64.0).cbrt())] {
+        for e in [1.0, 1e200] {
+            let z = normalize(&[3.0 * e, -4.0 * e], NormalizeMethod::Norm(p)).unwrap();
+            assert!(
+                (z[0] - 3.0 / nrm).abs() <= 1e-15 && (z[1] + 4.0 / nrm).abs() <= 1e-15,
+                "p={p} e={e}: {z:?}"
+            );
+        }
+    }
+    // Reescala de dados constantes: ponto médio.
+    assert_eq!(rescale(&[7.0, 7.0], 2.0, 6.0).unwrap(), vec![4.0, 4.0]);
+    // Preenchimento: linear entre vizinhos (dois outliers seguidos), mais próximo com empate
+    // (vence o anterior) e recorte no limite correto.
+    let y = [1.0, 2.0, 100.0, 200.0, 5.0, 6.0, 7.0, 8.0, -90.0, 9.0];
+    let (f, m) = filloutliers(&y, FillMethod::Linear, OutlierMethod::Median(3.0)).unwrap();
+    assert_eq!(
+        m,
+        vec![false, false, true, true, false, false, false, false, true, false]
+    );
+    assert!(
+        (f[2] - 3.0).abs() <= 1e-15 && (f[3] - 4.0).abs() <= 1e-15 && (f[8] - 8.5).abs() <= 1e-15,
+        "{f:?}"
+    );
+    let (f, _) = filloutliers(&y, FillMethod::Nearest, OutlierMethod::Median(3.0)).unwrap();
+    assert_eq!((f[2], f[3], f[8]), (2.0, 5.0, 8.0));
+    let (f, _) = filloutliers(&y, FillMethod::Clip, OutlierMethod::Median(3.0)).unwrap();
+    let (_, b) = isoutlier(&y, OutlierMethod::Median(3.0)).unwrap();
+    assert_eq!((f[2], f[8]), (b.upper, b.lower));
+}
+
+/// LOWESS/LOESS de referência (W. S. Cleveland, JASA 74, 1979), escrito à parte por força bruta:
+/// vizinhança de q pontos pela janela contígua de menor alcance máximo (empate: a mais à
+/// esquerda), pesos tricúbicos com alcance ·1,000001, mínimos quadrados ponderados pelas equações
+/// normais em t − t₀ e, no robusto, 4 reponderações bi-quadradas com escala 6·mediana|r|.
+fn loess_referencia(y: &[f64], span: f64, grau: usize, robusto: bool) -> Vec<f64> {
+    let n = y.len();
+    let q = ((span * n as f64).ceil() as usize).clamp((grau + 1).min(n), n);
+    let mut rob = vec![1.0; n];
+    let mut fit = vec![0.0; n];
+    for it in 0..if robusto { 5 } else { 1 } {
+        for (i, fi) in fit.iter_mut().enumerate() {
+            let alcance = |c: usize| (i as f64 - c as f64).abs().max((c + q - 1) as f64 - i as f64);
+            let l = (0..=n - q).fold(0, |m, c| if alcance(c) < alcance(m) { c } else { m });
+            let dmax = (l..l + q)
+                .map(|j| (j as f64 - i as f64).abs())
+                .fold(0.0, f64::max)
+                * 1.000_001;
+            let p = grau.min(q - 1) + 1;
+            let (mut a, mut b) = (vec![vec![0.0; p]; p], vec![0.0; p]);
+            for j in l..l + q {
+                let u = if dmax == 0.0 {
+                    0.0
+                } else {
+                    (j as f64 - i as f64).abs() / dmax
+                };
+                let w = (1.0 - u * u * u).powi(3) * rob[j];
+                let d = j as f64 - i as f64;
+                let pot: Vec<f64> = (0..2 * p).map(|k| d.powi(k as i32)).collect();
+                for r in 0..p {
+                    b[r] += w * pot[r] * y[j];
+                    for c in 0..p {
+                        a[r][c] += w * pot[r + c];
+                    }
+                }
+            }
+            // Eliminação de Gauss; o valor ajustado em t₀ é o coeficiente constante.
+            for k in 0..p {
+                for r in k + 1..p {
+                    let f = a[r][k] / a[k][k];
+                    for c in k..p {
+                        a[r][c] -= f * a[k][c];
+                    }
+                    b[r] -= f * b[k];
+                }
+            }
+            let mut x = vec![0.0; p];
+            for r in (0..p).rev() {
+                x[r] = (b[r] - (r + 1..p).map(|c| a[r][c] * x[c]).sum::<f64>()) / a[r][r];
+            }
+            *fi = x[0];
+        }
+        if it < 4 && robusto {
+            let mut res: Vec<f64> = (0..n).map(|i| (y[i] - fit[i]).abs()).collect();
+            let r0 = res.clone();
+            res.sort_by(f64::total_cmp);
+            let med = if n % 2 == 1 {
+                res[n / 2]
+            } else {
+                0.5 * (res[n / 2 - 1] + res[n / 2])
+            };
+            let s = 6.0 * med;
+            for i in 0..n {
+                rob[i] = (1.0 - (r0[i] / s).min(1.0).powi(2)).powi(2);
+            }
+        }
+    }
+    fit
+}
+
+/// smoothdata contra oráculos (mutação): resposta ao impulso do gaussiano (pesos
+/// exp(−½(d/σ)²) normalizados, σ = k/5), coeficientes publicados do Savitzky–Golay (janela 5,
+/// grau 2: (−3, 12, 17, 12, −3)/35; A. Savitzky & M. Golay, Anal. Chem. 36, 1964) e reprodução de
+/// polinômios nas bordas, e LOWESS/LOESS contra a referência acima.
+#[test]
+fn suavizacao_contra_oraculos() {
+    use chimalab_math::stats::{SmoothMethod, smoothdata};
+    let mut imp = vec![0.0; 21];
+    imp[10] = 1.0;
+    // Gaussiano, k = 5 (meia janela 2, σ = 1).
+    let g = smoothdata(&imp, SmoothMethod::Gaussian(5)).unwrap();
+    let w: Vec<f64> = (-2..=2).map(|d: i32| (-0.5 * f64::from(d * d)).exp()).collect();
+    let sw: f64 = w.iter().sum();
+    for (d, wd) in (-2..=2).zip(&w) {
+        let i = (10 + d) as usize;
+        assert!((g[i] - wd / sw).abs() <= 1e-15, "gauss {d}: {}", g[i]);
+    }
+    assert_eq!((g[7], g[13]), (0.0, 0.0));
+    // Savitzky–Golay, janela 5, grau 2.
+    let sg = smoothdata(&imp, SmoothMethod::SavitzkyGolay { window: 5, degree: 2 }).unwrap();
+    for (d, c) in (-2..=2).zip([-3.0, 12.0, 17.0, 12.0, -3.0]) {
+        let i = (10 - d) as usize;
+        assert!((sg[i] - c / 35.0).abs() <= 1e-14, "sg {d}: {}", sg[i]);
+    }
+    // Reprodução de polinômios de grau ≤ grau, inclusive nas bordas (janela deslocada).
+    let cub: Vec<f64> = (0..15)
+        .map(|i| {
+            let t = i as f64;
+            1.0 - 2.0 * t + 0.3 * t * t - 0.02 * t * t * t
+        })
+        .collect();
+    let s3 = smoothdata(&cub, SmoothMethod::SavitzkyGolay { window: 7, degree: 3 }).unwrap();
+    assert!(s3.iter().zip(&cub).all(|(a, b)| (a - b).abs() <= 1e-11), "{s3:?}");
+    // LOWESS/LOESS, robustos ou não, com outliers, contra a referência.
+    let mut y: Vec<f64> = (0..40)
+        .map(|i| {
+            let t = i as f64 / 4.0;
+            t.sin() + 0.1 * t
+        })
+        .collect();
+    y[7] += 3.0;
+    y[25] -= 2.5;
+    for (span, grau, robusto) in [
+        (0.3, 1, false),
+        (0.3, 1, true),
+        (0.5, 2, false),
+        (0.25, 2, true),
+        (1.0, 1, true),
+    ] {
+        let m = if grau == 1 {
+            SmoothMethod::Lowess {
+                span,
+                robust: robusto,
+            }
+        } else {
+            SmoothMethod::Loess {
+                span,
+                robust: robusto,
+            }
+        };
+        let s = smoothdata(&y, m).unwrap();
+        let r = loess_referencia(&y, span, grau, robusto);
+        for i in 0..y.len() {
+            assert!((s[i] - r[i]).abs() <= 1e-10, "{m:?} i={i}: {} vs {}", s[i], r[i]);
+        }
+    }
+}
+
+/// Extremos locais nas bordas e nos limiares (mutação) e GESD contra o valor crítico tabelado de
+/// Grubbs (n = 10, α = 0,05 bilateral: G = 2,290; tabelas de F. E. Grubbs, Technometrics 11,
+/// 1969). A estatística G = max|x − x̄|/s é calculada aqui; dados com G logo abaixo e logo acima
+/// do limite.
+#[test]
+fn extremos_e_gesd_nas_bordas() {
+    use chimalab_math::stats::{gesd, local_extrema};
+    // Pico no penúltimo índice (base: o maior dos mínimos dos dois lados, max(0, 1) = 1) e platô
+    // que chega ao fim (não é pico).
+    assert_eq!(
+        local_extrema(&[0.0, 1.0, 0.0, 2.0, 1.0], false, 0.0, 0),
+        vec![(1, 1.0), (3, 1.0)]
+    );
+    assert_eq!(
+        local_extrema(&[0.0, 1.0, 0.0, 2.0, 2.0], false, 0.0, 0),
+        vec![(1, 1.0)]
+    );
+    assert_eq!(
+        local_extrema(&[0.0, 3.0, 3.0, 3.0, 1.0], false, 0.0, 0),
+        vec![(2, 2.0)]
+    );
+    // Proeminência igual ao mínimo entra; separação igual à mínima é permitida.
+    let y = [0.0, 2.0, 1.0, 3.0, 0.0, 1.5, 0.0];
+    assert_eq!(
+        local_extrema(&y, false, 1.0, 0),
+        vec![(1, 1.0), (3, 3.0), (5, 1.5)]
+    );
+    assert_eq!(local_extrema(&y, false, 1.5, 0), vec![(3, 3.0), (5, 1.5)]);
+    assert_eq!(
+        local_extrema(&y, false, 0.0, 2),
+        vec![(1, 1.0), (3, 3.0), (5, 1.5)]
+    );
+    assert_eq!(local_extrema(&y, false, 0.0, 3), vec![(3, 3.0)]);
+    // Mínimos: espelho.
+    let neg: Vec<f64> = y.iter().map(|v| -v).collect();
+    assert_eq!(local_extrema(&neg, true, 1.5, 0), vec![(3, 3.0), (5, 1.5)]);
+    // GESD/Grubbs: 9 valores fixos e um que se afasta.
+    let base = [10.0, 10.4, 9.7, 10.1, 9.9, 10.3, 9.8, 10.2, 10.0];
+    let g = |v: f64| {
+        let mut x = base.to_vec();
+        x.push(v);
+        let m = x.iter().sum::<f64>() / 10.0;
+        let s = (x.iter().map(|a| (a - m) * (a - m)).sum::<f64>() / 9.0).sqrt();
+        x.iter().map(|a| (a - m).abs()).fold(0.0, f64::max) / s
+    };
+    // v com G = alvo, por bissecção (G cresce com v acima da média).
+    let com_g = |alvo: f64| {
+        let (mut lo, mut hi) = (10.5, 100.0);
+        for _ in 0..200 {
+            let mid = 0.5 * (lo + hi);
+            if g(mid) < alvo { lo = mid } else { hi = mid }
+        }
+        lo
+    };
+    for (alvo, outlier) in [(2.27, false), (2.31, true), (2.6, true), (1.9, false)] {
+        let mut x = base.to_vec();
+        x.push(com_g(alvo));
+        let m = gesd(&x, 1, 0.05).unwrap();
+        assert_eq!(m[9], outlier, "G = {alvo}");
+        assert!(m[..9].iter().all(|b| !b));
+    }
+    // Três pontos ainda são testados (G máximo 2/√3 ≈ 1,155 contra o crítico ≈ 1,115 com
+    // α = 0,5); dois não. α fora de (0, 1) é erro.
+    assert_eq!(
+        gesd(&[0.0, 0.0, 1000.0], 1, 0.5).unwrap(),
+        vec![false, false, true]
+    );
+    assert_eq!(gesd(&[1.0, 2.0], 1, 0.05).unwrap(), vec![false, false]);
+    for a in [0.0, 1.0] {
+        assert_eq!(
+            gesd(&base, 1, a).unwrap_err().id(),
+            "chimalab:stats:opcaoInvalida"
+        );
+    }
+}
+
+/// Moda, quantil com infinitos, somas compensadas e estatísticas ponderadas (mutação).
+#[test]
+fn moda_somas_compensadas_e_ponderadas() {
+    use chimalab_math::stats::{WeightNorm, median_weighted, var_weighted};
+    // Moda: não necessariamente o menor; empate fica com o menor; grupos crescentes.
+    assert_eq!(mode(&[1.0, 2.0, 2.0]), 2.0);
+    assert_eq!(mode(&[1.0, 2.0, 2.0, 3.0, 3.0, 3.0]), 3.0);
+    assert_eq!(mode(&[3.0, 1.0, 3.0, 1.0, 2.0]), 1.0);
+    assert_eq!(mode(&[5.0, 4.0, 4.0, 9.0, 9.0, 9.0, 4.0, 4.0]), 4.0);
+    // Quantil entre dois infinitos iguais: ∞ (sem ∞ − ∞).
+    let q = quantile(
+        &[1.0, f64::INFINITY, f64::INFINITY],
+        &[0.75],
+        QuantileType::default(),
+        NanFlag::Omit,
+    )
+    .unwrap();
+    assert_eq!(q[0], f64::INFINITY);
+    // Somas compensadas: com cancelamento catastrófico, o resultado é a soma exata arredondada
+    // uma só vez (conferido com frações exatas em Python; 1e16 + 2 é representável, 1e16 + 3
+    // arredonda para 1e16 + 4).
+    let x = [1e16, 1.0, -1e16, 1.0, 1e16, 1.0, -1e16, 1.0];
+    assert_eq!(
+        cumsum(&x, NanFlag::Include),
+        vec![
+            1e16,
+            1e16,
+            1.0,
+            2.0,
+            1.000_000_000_000_000_2e16,
+            1.000_000_000_000_000_4e16,
+            3.0,
+            4.0
+        ]
+    );
+    let m = moving(
+        &x,
+        Window::Centered(3),
+        MovingStat::Sum,
+        Endpoints::Shrink,
+        NanFlag::Include,
+    )
+    .unwrap();
+    assert_eq!(
+        m,
+        vec![
+            1e16,
+            1.0,
+            -9_999_999_999_999_998.0,
+            1.0,
+            1.000_000_000_000_000_2e16,
+            1.0,
+            -9_999_999_999_999_998.0,
+            -1e16
+        ]
+    );
+    // ±∞ que entra e sai da janela: depois de sair, a soma volta a ser finita.
+    let y = [1.0, 2.0, f64::INFINITY, 3.0, 4.0, 5.0, 6.0];
+    let m = moving(
+        &y,
+        Window::Asymmetric(1, 0),
+        MovingStat::Sum,
+        Endpoints::Shrink,
+        NanFlag::Include,
+    )
+    .unwrap();
+    assert_eq!(m, vec![1.0, 3.0, f64::INFINITY, f64::INFINITY, 7.0, 9.0, 11.0]);
+    let y = [1.0, f64::NEG_INFINITY, f64::INFINITY, 3.0, 4.0, 5.0];
+    let m = moving(
+        &y,
+        Window::Asymmetric(1, 0),
+        MovingStat::Sum,
+        Endpoints::Shrink,
+        NanFlag::Include,
+    )
+    .unwrap();
+    assert!(m[2].is_nan());
+    assert_eq!(&m[3..], &[f64::INFINITY, 7.0, 9.0]);
+    // Variância ponderada por frequência com Σw = 1: denominador nulo, NaN (não ∞).
+    assert!(
+        var_weighted(&[1.0, 3.0], &[0.5, 0.5], WeightNorm::Frequency, NanFlag::Include)
+            .unwrap()
+            .is_nan()
+    );
+    // Mediana ponderada contra a mediana dos dados replicados (pesos inteiros).
+    let mut s = 5u64;
+    let mut u = || {
+        s = s
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (s >> 33) as usize
+    };
+    for caso in 0..300 {
+        let n = 1 + caso % 7;
+        let xs: Vec<f64> = (0..n).map(|_| (u() % 20) as f64 - 10.0).collect();
+        let ws: Vec<f64> = (0..n).map(|_| (u() % 4) as f64).collect();
+        if ws.iter().all(|&w| w == 0.0) {
+            continue;
+        }
+        let rep: Vec<f64> = xs
+            .iter()
+            .zip(&ws)
+            .flat_map(|(&x, &w)| std::iter::repeat_n(x, w as usize))
+            .collect();
+        let esp = median(&rep, NanFlag::Include);
+        let got = median_weighted(&xs, &ws, NanFlag::Include).unwrap();
+        assert_eq!(got, esp, "caso {caso}: x {xs:?} w {ws:?}");
+    }
+    // Pesos fracionários com soma acumulada exatamente na metade (0,1 × 10).
+    let xs: Vec<f64> = (1..=10).map(f64::from).collect();
+    assert_eq!(median_weighted(&xs, &[0.1; 10], NanFlag::Include).unwrap(), 5.5);
+}
+
+/// `along_dim` em 3-D ao longo da dimensão do meio (passo e blocos externos > 1), com funções
+/// que mudam o tamanho do eixo, contra o cálculo por índices; erro de dimensão com os tamanhos.
+/// Quantil com posição a poucos ε de um inteiro: o ajuste evita interpolar com o vizinho
+/// (mutação).
+#[test]
+fn along_dim_3d_e_ajuste_do_quantil() {
+    let shape = [2usize, 3, 2];
+    let a: Vec<f64> = (0..12).map(|k| (k * k % 7) as f64 + 0.5 * k as f64).collect();
+    let at = |i: usize, j: usize, l: usize| a[i + 2 * (j + 3 * l)];
+    // Soma ao longo da dimensão 2 (índice 1): forma 2×1×2.
+    let (s, forma) = along_dim(&a, &shape, 1, |v| vec![v.iter().sum()]).unwrap();
+    assert_eq!(forma, vec![2, 1, 2]);
+    for l in 0..2 {
+        for i in 0..2 {
+            let esp: f64 = (0..3).map(|j| at(i, j, l)).sum();
+            assert_eq!(s[i + 2 * l], esp, "i={i} l={l}");
+        }
+    }
+    // Primeiro e último ao longo da dimensão 2: forma 2×2×2.
+    let (r, forma) = along_dim(&a, &shape, 1, |v| vec![v[0], v[v.len() - 1]]).unwrap();
+    assert_eq!(forma, vec![2, 2, 2]);
+    for l in 0..2 {
+        for i in 0..2 {
+            assert_eq!(
+                (r[i + 2 * (2 * l)], r[i + 2 * (1 + 2 * l)]),
+                (at(i, 0, l), at(i, 2, l))
+            );
+        }
+    }
+    match along_dim(&a, &shape, 5, |v| v.to_vec()) {
+        Err(StatsError::ShapeMismatch { expected, actual }) => assert_eq!((expected, actual), (3, 6)),
+        o => panic!("{o:?}"),
+    }
+    // Tipo 4 (h = n·p) com n = 25 e p = 0,28: em ponto flutuante h = 7,000000000000001, a poucos
+    // ε do inteiro 7 (achado por busca). Sem o ajuste, o peso 9e-16 do vizinho 8e17 somaria ~700.
+    let x: Vec<f64> = (1..=25)
+        .map(|i| if i <= 7 { i as f64 } else { i as f64 * 1e17 })
+        .collect();
+    let q = quantile(&x, &[0.28], QuantileType::new(4).unwrap(), NanFlag::Include).unwrap();
+    assert_eq!(q, vec![7.0]);
+}
+
+/// Preenchimento pelo mais próximo com distâncias em que diferença e razão discordam
+/// (mutação): outliers em 6..=12 com vizinhos bons em 5 e 13 (no índice 10: 5 contra 3,
+/// vence o seguinte), e outliers em 2..=7 com bons em 1 e 8 (no índice 4: 3 contra 4, vence o
+/// anterior).
+#[test]
+fn preenchimento_mais_proximo_distancias() {
+    let serie = |ruins: std::ops::RangeInclusive<usize>| -> Vec<f64> {
+        (0..20)
+            .map(|i| {
+                if ruins.contains(&i) {
+                    1000.0
+                } else {
+                    1.0 + 0.01 * i as f64
+                }
+            })
+            .collect()
+    };
+    let y = serie(6..=12);
+    let (f, m) = filloutliers(&y, FillMethod::Nearest, OutlierMethod::Median(3.0)).unwrap();
+    assert!(m[6..=12].iter().all(|&b| b) && !m[5] && !m[13]);
+    assert_eq!((f[10], f[8], f[9]), (y[13], y[5], y[5]));
+    let y = serie(2..=7);
+    let (f, _) = filloutliers(&y, FillMethod::Nearest, OutlierMethod::Median(3.0)).unwrap();
+    assert_eq!((f[4], f[5]), (y[1], y[8]));
+}

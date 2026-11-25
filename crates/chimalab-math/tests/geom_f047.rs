@@ -682,6 +682,20 @@ fn intersecao_com_vertice_quase_sobre_aresta() {
     let sh = recorte_convexo(&a.rings()[0], &b.rings()[0]);
     assert!((inter.area() - sh).abs() <= 1e-15, "{} vs {sh}", inter.area());
     assert!((inter.area() - 0.002_762_825_780_396_86).abs() <= 1e-15);
+    // O mesmo par escalado por 2^±30 (exato): a tolerância de encaixe nas pontas é relativa à
+    // escala das coordenadas, e o resultado escala com s² (mutação).
+    for e in [-30i32, 30] {
+        let s = 2f64.powi(e);
+        let esc = |p: &Polygon| {
+            Polygon::new(vec![p.rings()[0].iter().map(|v| [v[0] * s, v[1] * s]).collect()]).unwrap()
+        };
+        let r = polygon_boolean(&esc(&a), &esc(&b), BoolOp::Intersection).area();
+        assert!(
+            (r - inter.area() * s * s).abs() <= 1e-15 * s * s,
+            "2^{e}: {r} vs {}",
+            inter.area() * s * s
+        );
+    }
 }
 
 proptest! {
@@ -691,9 +705,12 @@ proptest! {
     /// degenerados por construção): cada interseção coincide com Sutherland–Hodgman, e as partes
     /// somam a área da célula nova.
     #[test]
-    fn intersecoes_de_celulas_de_voronoi(sem in any::<u64>(), n in 8usize..40, qx in 0.2f64..0.8, qy in 0.2f64..0.8) {
-        let pts = aleatorios(n, sem);
-        let caixa = [-3.0, -3.0, 4.0, 4.0];
+    fn intersecoes_de_celulas_de_voronoi(sem in any::<u64>(), n in 8usize..40, qx in 0.2f64..0.8, qy in 0.2f64..0.8, e in prop_oneof![Just(0i32), Just(30), Just(-30)]) {
+        // Escala 2^e exata: a tolerância de encaixe nas pontas é relativa às coordenadas.
+        let s = 2f64.powi(e);
+        let pts: Vec<[f64; 2]> = aleatorios(n, sem).iter().map(|p| [p[0] * s, p[1] * s]).collect();
+        let (qx, qy) = (qx * s, qy * s);
+        let caixa = [-3.0 * s, -3.0 * s, 4.0 * s, 4.0 * s];
         let Ok(d) = Delaunay::new(&pts) else { return Ok(()) };
         let antigas = voronoi_clipped(&d, caixa);
         let mut mais = pts.clone();
@@ -704,9 +721,216 @@ proptest! {
         for (_, cel) in &antigas {
             let a = polygon_boolean(cq, cel, BoolOp::Intersection).area();
             let sh = recorte_convexo(&cq.rings()[0], &cel.rings()[0]);
-            prop_assert!((a - sh).abs() <= 1e-12 * cq.area().max(1e-300) + 1e-15, "{} vs {}", a, sh);
+            prop_assert!((a - sh).abs() <= 1e-12 * cq.area().max(1e-300) + 1e-15 * s * s, "{} vs {}", a, sh);
             soma += a;
         }
         prop_assert!((soma - cq.area()).abs() <= 1e-12 * cq.area(), "{} vs {}", soma, cq.area());
+    }
+}
+
+/// Booleanas com vértices de toque (regressão e mutação): quando duas regiões se tocam só num
+/// vértice (dois quadrados pelo canto, ou um furo que toca a borda externa), o resultado sai em
+/// anéis simples, sem vértice repetido; antes saía um anel em forma de 8. Arestas comuns sem área
+/// não geram anéis.
+#[test]
+fn booleana_com_toque_em_vertice_e_aresta() {
+    let quad = |x: f64, y: f64| {
+        Polygon::new(vec![vec![[x, y], [x + 1.0, y], [x + 1.0, y + 1.0], [x, y + 1.0]]]).unwrap()
+    };
+    let simples = |r: &Vec<[f64; 2]>| {
+        // Sem vértice repetido no anel.
+        let mut v: Vec<[u64; 2]> = r.iter().map(|p| [p[0].to_bits(), p[1].to_bits()]).collect();
+        v.sort_unstable();
+        v.windows(2).all(|w| w[0] != w[1])
+    };
+    // Toque num canto, nas duas diagonais e com o segundo quadrado em cada posição.
+    for (x, y) in [(1.0, 1.0), (-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0)] {
+        let (a, b) = (quad(0.0, 0.0), quad(x, y));
+        for op in [BoolOp::Union, BoolOp::Xor] {
+            let r = polygon_boolean(&a, &b, op);
+            assert_eq!(r.rings().len(), 2, "({x}, {y}) {op:?}: {:?}", r.rings());
+            assert!(
+                r.rings().iter().all(simples),
+                "({x}, {y}) {op:?}: {:?}",
+                r.rings()
+            );
+            assert!((r.area() - 2.0).abs() <= 1e-15, "({x}, {y}) {op:?}");
+        }
+        let r = polygon_boolean(&a, &b, BoolOp::Intersection);
+        assert!(r.rings().is_empty(), "({x}, {y}): {:?}", r.rings());
+    }
+    // Aresta comum: interseção vazia (sem anel degenerado), união com área 2.
+    let (a, b) = (quad(0.0, 0.0), quad(1.0, 0.0));
+    assert!(polygon_boolean(&a, &b, BoolOp::Intersection).rings().is_empty());
+    assert!((polygon_boolean(&a, &b, BoolOp::Union).area() - 2.0).abs() <= 1e-15);
+    // Furo que toca a borda externa num ponto: quadrado [0, 2]² menos o triângulo com vértice
+    // em (1, 0) sobre a borda. Área 4 − 1/2, anéis simples, e o ponto de toque fica na borda.
+    let q2 = Polygon::new(vec![vec![[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]]]).unwrap();
+    let tri = Polygon::new(vec![vec![[1.0, 0.0], [1.5, 1.0], [0.5, 1.0]]]).unwrap();
+    let r = polygon_boolean(&q2, &tri, BoolOp::Difference);
+    assert!((r.area() - 3.5).abs() <= 1e-15, "{}", r.area());
+    assert!(r.rings().iter().all(simples), "{:?}", r.rings());
+    assert_eq!(r.locate([1.0, 0.5]), Location::Outside);
+    assert_eq!(r.locate([1.0, 0.0]), Location::Boundary);
+    assert_eq!(r.locate([0.3, 0.3]), Location::Inside);
+    // Três quadrados em L tocando-se em canto e aresta: XOR com o do meio.
+    let l = polygon_boolean(&quad(0.0, 0.0), &quad(1.0, 1.0), BoolOp::Union);
+    let r = polygon_boolean(&l, &quad(2.0, 0.0), BoolOp::Union);
+    assert!((r.area() - 3.0).abs() <= 1e-15);
+    assert!(r.rings().iter().all(simples), "{:?}", r.rings());
+}
+
+/// Regressão: células de Voronoi recortadas em escala pequena. Os raios das células ilimitadas
+/// tinham comprimento 4·ext + 1 (parcela absoluta); em coordenadas ~1e-9 ficavam 1e8 vezes
+/// maiores que a caixa, e as áreas erravam em até 1e-8 relativo. Agora o diagrama é invariante
+/// por escala: com coordenadas multiplicadas por 2^±30 (exato), as áreas escalam exatamente.
+#[test]
+fn voronoi_recortado_invariante_por_escala() {
+    let base = aleatorios(8, 1_385_169_509_088_931_791);
+    let areas = |e: i32| -> Vec<f64> {
+        let s = 2f64.powi(e);
+        let mut pts: Vec<[f64; 2]> = base.iter().map(|p| [p[0] * s, p[1] * s]).collect();
+        pts.push([0.2 * s, 0.2 * s]);
+        let caixa = [-3.0 * s, -3.0 * s, 4.0 * s, 4.0 * s];
+        voronoi_clipped(&Delaunay::new(&pts).unwrap(), caixa)
+            .iter()
+            .map(|c| c.1.area() / (s * s))
+            .collect()
+    };
+    let a0 = areas(0);
+    assert!((a0.iter().sum::<f64>() - 49.0).abs() <= 1e-12);
+    // Até 2^±100: abaixo de ~1e-75 os termos do incircle (quarta potência das coordenadas)
+    // sofrem underflow e os predicados deixam de ser exatos (limite das expansões em f64).
+    for e in [-30, 30, -100, 100] {
+        assert_eq!(areas(e), a0, "2^{e}");
+    }
+}
+
+/// Centroide fora da origem, ponto no polígono com vértices na altura do ponto e cobertura da
+/// caixa pelo Voronoi recortado (mutação).
+#[test]
+fn centroide_raio_por_vertices_e_cobertura_da_caixa() {
+    // Centroide de um L deslocado: forma fechada por decomposição em dois retângulos.
+    for (ox, oy) in [(0.0, 0.0), (5.0, -7.0), (1e6, 3e6)] {
+        let l = [
+            [0.0, 0.0],
+            [3.0, 0.0],
+            [3.0, 1.0],
+            [1.0, 1.0],
+            [1.0, 2.0],
+            [0.0, 2.0],
+        ];
+        let p: Vec<[f64; 2]> = l.iter().map(|v| [v[0] + ox, v[1] + oy]).collect();
+        // Retângulos [0,3]×[0,1] (área 3, centro (1,5; 0,5)) e [0,1]×[1,2] (área 1, centro (0,5; 1,5)).
+        let c = polygon_centroid(&p).unwrap();
+        let esp = [ox + (3.0 * 1.5 + 0.5) / 4.0, oy + (3.0 * 0.5 + 1.5) / 4.0];
+        assert!(
+            (c[0] - esp[0]).abs() <= 1e-12 * (1.0 + ox.abs())
+                && (c[1] - esp[1]).abs() <= 1e-12 * (1.0 + oy.abs()),
+            "{c:?} vs {esp:?}"
+        );
+    }
+    // Losango |x| + |y| ≤ 1: pontos na altura dos vértices (0, ±1) e (±1, 0), em que o raio
+    // horizontal passa exatamente por um vértice; oráculo pela desigualdade.
+    let los = [[0.0, -1.0], [1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]];
+    for i in -8..=8 {
+        for y in [-1.0, -0.5, 0.0, 0.5, 1.0] {
+            let x = i as f64 / 4.0;
+            let s = x.abs() + f64::abs(y);
+            let esp = if s < 1.0 {
+                Location::Inside
+            } else if s == 1.0 {
+                Location::Boundary
+            } else {
+                Location::Outside
+            };
+            assert_eq!(point_in_polygon([x, y], &los), esp, "({x}, {y})");
+        }
+    }
+    // Polígono com arestas horizontais na altura do ponto (degraus).
+    let degraus = [
+        [0.0, 0.0],
+        [4.0, 0.0],
+        [4.0, 2.0],
+        [3.0, 2.0],
+        [3.0, 1.0],
+        [1.0, 1.0],
+        [1.0, 2.0],
+        [0.0, 2.0],
+    ];
+    for (q, esp) in [
+        ([2.0, 1.0], Location::Boundary),
+        ([2.0, 1.5], Location::Outside),
+        ([0.5, 1.0], Location::Inside),
+        ([3.5, 1.0], Location::Inside),
+        ([-1.0, 1.0], Location::Outside),
+        ([5.0, 1.0], Location::Outside),
+        ([5.0, 2.0], Location::Outside),
+        ([-1.0, 0.0], Location::Outside),
+        ([2.0, 0.5], Location::Inside),
+    ] {
+        assert_eq!(point_in_polygon(q, &degraus), esp, "{q:?}");
+    }
+    // Voronoi recortado: as células cobrem a caixa (áreas somam a da caixa), mesmo com a caixa
+    // muito maior que a nuvem, alongada, ou longe dos pontos.
+    let pts = aleatorios(12, 77);
+    let longe: Vec<[f64; 2]> = pts.iter().map(|p| [p[0] + 1e3, p[1] + 1e3]).collect();
+    for (nuvem, caixa) in [
+        (&pts, [-100.0, -100.0, 100.0, 100.0]),
+        (&pts, [-1000.0, -1.0, 1000.0, 1.0]),
+        (&pts, [-3.0, 0.2, 5.0, 0.3]),
+        (&longe, [0.0, 0.0, 1.0, 1.0]),
+        (&longe, [-50.0, -50.0, 50.0, 50.0]),
+    ] {
+        let d = Delaunay::new(nuvem).unwrap();
+        let soma: f64 = voronoi_clipped(&d, caixa).iter().map(|c| c.1.area()).sum();
+        let area = (caixa[2] - caixa[0]) * (caixa[3] - caixa[1]);
+        assert!((soma - area).abs() <= 1e-9 * area, "{caixa:?}: {soma} vs {area}");
+    }
+}
+
+/// Ponto no polígono com o raio passando por um vértice de pico ou de vale na altura do ponto,
+/// nos dois sentidos de percurso (mutação): contar duas vezes esse vértice muda o número de voltas
+/// para 0 num dos sentidos e o ponto sairia "fora".
+#[test]
+fn ponto_no_poligono_com_entalhes() {
+    // Quadrado 4×4 com entalhe por baixo até o pico (2, 2) e outro com entalhe por cima até o
+    // vale (2, 2). O ponto (1, 2) está dentro nos dois; (2, 2) é borda; (2, 1) está fora no
+    // primeiro e dentro no segundo.
+    let pico = vec![
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [2.0, 2.0],
+        [3.0, 0.0],
+        [4.0, 0.0],
+        [4.0, 4.0],
+        [0.0, 4.0],
+    ];
+    let vale = vec![
+        [0.0, 0.0],
+        [4.0, 0.0],
+        [4.0, 4.0],
+        [3.0, 4.0],
+        [2.0, 2.0],
+        [1.0, 4.0],
+        [0.0, 4.0],
+    ];
+    for (poli, dentro_21) in [(pico, false), (vale, true)] {
+        for sentido in [false, true] {
+            let mut p = poli.clone();
+            if sentido {
+                p.reverse();
+            }
+            assert_eq!(point_in_polygon([1.0, 2.0], &p), Location::Inside, "{p:?}");
+            assert_eq!(point_in_polygon([3.5, 2.0], &p), Location::Inside, "{p:?}");
+            assert_eq!(point_in_polygon([2.0, 2.0], &p), Location::Boundary, "{p:?}");
+            assert_eq!(point_in_polygon([-1.0, 2.0], &p), Location::Outside, "{p:?}");
+            let esp = if dentro_21 {
+                Location::Inside
+            } else {
+                Location::Outside
+            };
+            assert_eq!(point_in_polygon([2.0, 1.0], &p), esp, "{p:?}");
+        }
     }
 }
