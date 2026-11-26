@@ -36,6 +36,8 @@ pub enum RuntimeError {
     InvalidConversion(String),
     /// Erro numérico vindo da biblioteca matemática.
     Math(String),
+    /// O array resultante passaria de [`crate::MAX_ELEMENTOS`] elementos.
+    TooLarge(Vec<usize>),
 }
 
 impl RuntimeError {
@@ -48,6 +50,7 @@ impl RuntimeError {
             Self::InvalidIndex(_) => "chimalab:runtime:indiceInvalido",
             Self::InvalidConversion(_) => "chimalab:runtime:conversaoInvalida",
             Self::Math(_) => "chimalab:runtime:erroNumerico",
+            Self::TooLarge(_) => "chimalab:runtime:arrayGrandeDemais",
         }
     }
 }
@@ -75,6 +78,15 @@ impl fmt::Display for RuntimeError {
             Self::InvalidIndex(m) => write!(f, "índice inválido: {m}"),
             Self::InvalidConversion(m) => write!(f, "conversão inválida: {m}"),
             Self::Math(m) => write!(f, "{m}"),
+            Self::TooLarge(d) => {
+                let t: Vec<String> = d.iter().map(|x| x.to_string()).collect();
+                write!(
+                    f,
+                    "o array {} passaria do limite de {} elementos",
+                    t.join("×"),
+                    crate::MAX_ELEMENTOS
+                )
+            }
         }
     }
 }

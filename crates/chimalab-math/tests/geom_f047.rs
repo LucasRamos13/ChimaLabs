@@ -934,3 +934,71 @@ fn ponto_no_poligono_com_entalhes() {
         }
     }
 }
+
+/// Raio que passa exatamente por vértices (mutação): no losango, pontos fora na altura de um
+/// vértice não podem contar o cruzamento duas vezes (a aresta que sobe inclui o início e exclui
+/// o fim).
+#[test]
+fn ponto_no_poligono_raio_por_vertice() {
+    let losango = [[0.0, -1.0], [1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]];
+    for q in [
+        [-2.0, 0.0],
+        [2.0, 0.0],
+        [-3.0, 1.0],
+        [3.0, -1.0],
+        [0.5, 1.0],
+        [-0.5, -1.0],
+    ] {
+        assert_eq!(point_in_polygon(q, &losango), Location::Outside, "{q:?}");
+    }
+    for q in [[0.0, 0.0], [0.5, 0.0], [-0.5, 0.0], [0.0, 0.5]] {
+        assert_eq!(point_in_polygon(q, &losango), Location::Inside, "{q:?}");
+    }
+    for q in [[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]] {
+        assert_eq!(point_in_polygon(q, &losango), Location::Boundary, "{q:?}");
+    }
+    // Sentido horário dá o mesmo.
+    let horario: Vec<[f64; 2]> = losango.iter().rev().copied().collect();
+    assert_eq!(point_in_polygon([-2.0, 0.0], &horario), Location::Outside);
+    assert_eq!(point_in_polygon([0.0, 0.0], &horario), Location::Inside);
+}
+
+/// Pontos sobre as arestas do fecho, inseridos depois das pontas (mutação): o teste de
+/// colinearidade dos triângulos fantasmas é alcançável. Sem ele, 216 de 4000 conjuntos deram
+/// triangulação inválida.
+#[test]
+fn delaunay_com_pontos_sobre_o_fecho() {
+    let mut s: u64 = 12345;
+    let mut rnd = |m: u64| {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        s % m
+    };
+    for _ in 0..4000 {
+        let n = 10 + rnd(10);
+        let nf = n as f64;
+        let mut pts = vec![[0.0, 0.0], [nf, 0.0], [0.0, nf]];
+        for _ in 0..(3 + rnd(12)) {
+            let k = (1 + rnd(n - 1)) as f64;
+            match rnd(4) {
+                0 => pts.push([k, 0.0]),
+                1 => pts.push([0.0, k]),
+                2 => pts.push([k, nf - k]),
+                _ => pts.push([rnd(n) as f64 * 0.5, rnd(n) as f64 * 0.5]),
+            }
+        }
+        for i in (1..pts.len()).rev() {
+            let j = rnd(i as u64 + 1) as usize;
+            pts.swap(i, j);
+        }
+        let d = Delaunay::new(&pts).unwrap();
+        assert!(d.is_delaunay(), "{pts:?}");
+        assert!(
+            d.triangles()
+                .iter()
+                .all(|t| orient2d(pts[t[0]], pts[t[1]], pts[t[2]]) > 0.0),
+            "{pts:?}"
+        );
+    }
+}

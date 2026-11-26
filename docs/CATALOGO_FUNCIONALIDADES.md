@@ -77,7 +77,7 @@ Catálogo funcional em **sala limpa**. Comportamentos descrevem necessidades e r
 | 17. Restrições técnicas | — |
 | 18. Restrições jurídicas | Comportamento funcional e nomes de funções/sintaxe: compatibilidade de linguagem é questão PENDENTE de avaliação jurídica (ver LICENCAS_E_RESTRICOES.txt §15, Q2). Nenhum texto/código do original pode ser usado. |
 
-*Status:* **PLANEJADA**
+*Status:* **EM DESENVOLVIMENTO**
 
 ### F003 — Tipos numéricos e lógicos fundamentais
 
@@ -177,7 +177,7 @@ Catálogo funcional em **sala limpa**. Comportamentos descrevem necessidades e r
 | 17. Restrições técnicas | — |
 | 18. Restrições jurídicas | Sem restrição jurídica específica identificada além das gerais (marca e independência de implementação). |
 
-*Status:* **PLANEJADA**
+*Status:* **EM DESENVOLVIMENTO**
 
 ### F007 — Programação orientada a objetos
 
@@ -352,7 +352,7 @@ Catálogo funcional em **sala limpa**. Comportamentos descrevem necessidades e r
 | 17. Restrições técnicas | — |
 | 18. Restrições jurídicas | Comportamento funcional e nomes de funções/sintaxe: compatibilidade de linguagem é questão PENDENTE de avaliação jurídica (ver LICENCAS_E_RESTRICOES.txt §15, Q2). Nenhum texto/código do original pode ser usado. |
 
-*Status:* **PLANEJADA**
+*Status:* **EM DESENVOLVIMENTO**
 
 ### F014 — Caminho de busca, pacotes e pastas especiais
 
@@ -427,7 +427,7 @@ Catálogo funcional em **sala limpa**. Comportamentos descrevem necessidades e r
 | 17. Restrições técnicas | — |
 | 18. Restrições jurídicas | Sem restrição jurídica específica identificada além das gerais (marca e independência de implementação). |
 
-*Status:* **PLANEJADA**
+*Status:* **EM DESENVOLVIMENTO**
 
 ### F017 — Eventos, listeners e referências fracas
 
@@ -527,7 +527,7 @@ Catálogo funcional em **sala limpa**. Comportamentos descrevem necessidades e r
 | 17. Restrições técnicas | — |
 | 18. Restrições jurídicas | Sem restrição jurídica específica identificada além das gerais (marca e independência de implementação). |
 
-*Status:* **PLANEJADA**
+*Status:* **EM DESENVOLVIMENTO**
 
 ## DAT — Tipos de dados de alto nível
 

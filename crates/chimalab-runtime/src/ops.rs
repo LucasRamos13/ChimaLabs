@@ -98,7 +98,7 @@ fn result_class(op: &'static str, a: &Value, b: &Value) -> Result<Class, Runtime
 }
 
 /// Expande os índices lineares de cada operando para a forma de saída.
-fn broadcast_index(dims: &[usize], out: &[usize]) -> Vec<usize> {
+pub(crate) fn broadcast_index(dims: &[usize], out: &[usize]) -> Vec<usize> {
     let total: usize = out.iter().product();
     let mut idx = Vec::with_capacity(total);
     let mut sub = vec![0usize; out.len()];
@@ -132,6 +132,7 @@ pub fn elementwise(op: BinOp, a: &Value, b: &Value) -> Result<Value, RuntimeErro
         left: a.dims().to_vec(),
         right: b.dims().to_vec(),
     })?;
+    verifica_tamanho(&out)?;
     let (ia, ib) = (broadcast_index(a.dims(), &out), broadcast_index(b.dims(), &out));
     match class {
         Class::Int(c) => {
@@ -181,7 +182,7 @@ pub fn elementwise(op: BinOp, a: &Value, b: &Value) -> Result<Value, RuntimeErro
 }
 
 /// Complexo com todas as partes imaginárias nulas volta a ser real.
-fn simplify(a: NdArray<Complex64>) -> Value {
+pub(crate) fn simplify(a: NdArray<Complex64>) -> Value {
     if a.as_slice().iter().all(|z| z.im == 0.0) {
         Value::Double(a.map(|z| z.re))
     } else {
@@ -334,6 +335,7 @@ pub fn compare(op: CmpOp, a: &Value, b: &Value) -> Result<Value, RuntimeError> {
         left: a.dims().to_vec(),
         right: b.dims().to_vec(),
     })?;
+    verifica_tamanho(&out)?;
     let (ia, ib) = (broadcast_index(a.dims(), &out), broadcast_index(b.dims(), &out));
     let ord = |x: std::cmp::Ordering| match op {
         CmpOp::Eq => x.is_eq(),
@@ -467,6 +469,7 @@ pub fn mtimes(a: &Value, b: &Value) -> Result<Value, RuntimeError> {
             right: b.dims().to_vec(),
         });
     }
+    verifica_tamanho(&[ra, cb])?;
     if complexo {
         let x = NdArray::from_shape_vec(&[ra, ca], a.to_complex()).expect("forma");
         let y = NdArray::from_shape_vec(&[rb, cb], b.to_complex()).expect("forma");
@@ -482,7 +485,7 @@ pub fn mtimes(a: &Value, b: &Value) -> Result<Value, RuntimeError> {
     })
 }
 
-fn converte_avisos(ws: &[LinalgWarning]) -> Vec<Warning> {
+pub(crate) fn converte_avisos(ws: &[LinalgWarning]) -> Vec<Warning> {
     ws.iter()
         .map(|w| match w {
             LinalgWarning::Singular | LinalgWarning::RankDeficient { .. } => {
@@ -638,7 +641,7 @@ pub enum LogicOp {
 }
 
 /// Verdade de cada elemento: não nulo é verdadeiro; NaN dá erro (não tem valor lógico).
-fn truth(v: &Value) -> Result<Vec<bool>, RuntimeError> {
+pub(crate) fn truth(v: &Value) -> Result<Vec<bool>, RuntimeError> {
     match v {
         Value::Logical(a) => Ok(a.as_slice().to_vec()),
         Value::Complex(z) => {
@@ -664,6 +667,7 @@ pub fn logical(op: LogicOp, a: &Value, b: &Value) -> Result<Value, RuntimeError>
         left: a.dims().to_vec(),
         right: b.dims().to_vec(),
     })?;
+    verifica_tamanho(&out)?;
     let (ta, tb) = (truth(a)?, truth(b)?);
     let (ia, ib) = (broadcast_index(a.dims(), &out), broadcast_index(b.dims(), &out));
     let v: Vec<bool> = ia
@@ -732,24 +736,54 @@ pub fn transpose(a: &Value, conjugate: bool) -> Result<Value, RuntimeError> {
 /// início + k·passo, e o último é ajustado para `fim` quando a diferença está dentro da mesma
 /// tolerância (0:0,1:1 termina exatamente em 1). Passo 0, NaN ou sentido contrário dão vetor
 /// vazio 1×0.
+///
+/// Monta o vetor inteiro: para intervalos enormes, confira antes [`colon_n`] (o `for` do
+/// interpretador percorre com [`colon_elemento`] sem montar).
 pub fn colon(start: f64, step: f64, stop: f64) -> Value {
-    let vazio = || Value::doubles(&[1, 0], Vec::new());
+    let n = colon_n(start, step, stop);
+    let v: Vec<f64> = (0..n).map(|k| colon_elemento(start, step, stop, n, k)).collect();
+    Value::doubles(&[1, n], v)
+}
+
+/// Quociente e tolerância do intervalo (`None` se vazio).
+fn colon_q(start: f64, step: f64, stop: f64) -> Option<(f64, f64)> {
     if !(start.is_finite() && step.is_finite() && stop.is_finite()) || step == 0.0 {
-        return vazio();
+        return None;
     }
     let q = (stop - start) / step;
-    if q < 0.0 {
-        return vazio();
+    if q < 0.0 || q.is_nan() {
+        return None;
     }
-    let tol = 4.0 * f64::EPSILON * q.max(1.0);
-    let n = (q + tol).floor() as usize + 1;
-    let mut v: Vec<f64> = (0..n).map(|k| start + k as f64 * step).collect();
-    if let Some(ultimo) = v.last_mut()
-        && ((*ultimo - stop) / step).abs() <= tol
+    Some((q, 4.0 * f64::EPSILON * q.max(1.0)))
+}
+
+/// Número de elementos de `start:step:stop` (satura em `usize::MAX`).
+pub fn colon_n(start: f64, step: f64, stop: f64) -> usize {
+    colon_q(start, step, stop).map_or(0, |(q, tol)| ((q + tol).floor() as usize).saturating_add(1))
+}
+
+/// Elemento `k` (0-based) de `start:step:stop`, que tem `n` elementos: início + k·passo, com o
+/// último ajustado para `stop` quando está dentro da tolerância.
+pub fn colon_elemento(start: f64, step: f64, stop: f64, n: usize, k: usize) -> f64 {
+    let x = start + k as f64 * step;
+    if k + 1 == n
+        && let Some((_, tol)) = colon_q(start, step, stop)
+        && ((x - stop) / step).abs() <= tol
     {
-        *ultimo = stop;
+        return stop;
     }
-    Value::doubles(&[1, n], v)
+    x
+}
+
+/// Confere se um array com a forma `dims` cabe no limite [`crate::MAX_ELEMENTOS`].
+///
+/// Erros: `arrayGrandeDemais`.
+pub fn verifica_tamanho(dims: &[usize]) -> Result<(), RuntimeError> {
+    let n = dims.iter().try_fold(1usize, |acc, &d| acc.checked_mul(d));
+    match n {
+        Some(n) if n <= crate::MAX_ELEMENTOS => Ok(()),
+        _ => Err(RuntimeError::TooLarge(dims.to_vec())),
+    }
 }
 
 /// `n` pontos igualmente espaçados de `a` a `b`, com os dois extremos exatos (a semântica de

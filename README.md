@@ -2,7 +2,7 @@
 
 Ambiente aberto e independente de computação numérica (linguagem de arrays, bibliotecas científicas, gráficos, IDE, documentos executáveis, apps), com o **ChimaLab Fluxo** para modelagem e simulação por diagramas de blocos.
 
-> **Estado:** em desenvolvimento. As bibliotecas numéricas (`crates/chimalab-math`) e o modelo de valores do runtime (`crates/chimalab-runtime`) já têm implementação e testes; a linguagem, a IDE e o Fluxo ainda não. O estado de cada funcionalidade está em [docs/MATRIZ_PARIDADE_FUNCIONAL.md](docs/MATRIZ_PARIDADE_FUNCIONAL.md) e em `docs/progresso/`.
+> **Estado:** em desenvolvimento. As bibliotecas numéricas (`crates/chimalab-math`), o modelo de valores do runtime (`crates/chimalab-runtime`) e a linguagem (léxico, parser e um primeiro avaliador, em `crates/chimalab-lang` e `chimalab-runtime`) já têm implementação e testes; o console interativo, a IDE e o Fluxo ainda não. O estado de cada funcionalidade está em [docs/MATRIZ_PARIDADE_FUNCIONAL.md](docs/MATRIZ_PARIDADE_FUNCIONAL.md) e em `docs/progresso/`.
 
 ## Objetivos
 - Atender às necessidades de engenheiros, cientistas, estudantes e docentes que hoje dependem de ambientes comerciais de computação numérica e simulação.
@@ -11,6 +11,9 @@ Ambiente aberto e independente de computação numérica (linguagem de arrays, b
 
 ## O que já existe (`chimalab-math`)
 Álgebra linear densa e esparsa (fatorações, autovalores, Schur, funções de matriz, métodos iterativos), funções especiais reais e complexas, estatística descritiva e robusta, FFT e filtragem, interpolação 1-D e de dados dispersos, polinômios, geometria computacional (predicados exatos, Delaunay, Voronoi, fecho convexo 2-D e 3-D, operações booleanas), integração numérica adaptativa, EDOs (explícitos, implícitos, Rosenbrock), equações com retardo, problemas de contorno e EDPs parabólicas 1-D, otimização e raízes, grafos, geradores aleatórios e aritmética dupla-dupla.
+
+## A linguagem (`chimalab-lang`, `chimalab-runtime`, `chimalab-cli`)
+Sintaxe própria inspirada no Python (blocos por indentação, `def`, funções anônimas `x -> x^2`, f-strings), índices na base 1 com colchetes e operadores matriciais. Um primeiro interpretador já executa scripts e o console (`chimalab`, `chimalab arquivo.chl`, `chimalab -c "…"`), com 150 funções embutidas, inclusive álgebra linear, funções especiais, integrais, raízes, EDOs, polinômios, FFT, interpolação e estatística. Comece pelo [guia rápido](docs/linguagem/00-guia-rapido.md); a especificação completa está em [docs/linguagem/](docs/linguagem/README.md).
 
 ## Testes
 O padrão de testes está em [docs/PLANO_DE_TESTES.md](docs/PLANO_DE_TESTES.md): critérios de aceitação, oráculos independentes de alta precisão (mpmath, soluções analíticas, identidades), testes de propriedade (proptest), casos de borda, cobertura ≥ 90% e teste de mutação (cargo-mutants).
@@ -31,7 +34,7 @@ Requer o toolchain Rust fixado em `rust-toolchain.toml`.
 | [docs/CATALOGO_FUNCIONALIDADES.md](docs/CATALOGO_FUNCIONALIDADES.md) | 162 funcionalidades com critérios de aceitação |
 | [docs/REQUISITOS.md](docs/REQUISITOS.md) | Requisitos não funcionais e funcionais |
 | [docs/MATRIZ_PARIDADE_FUNCIONAL.md](docs/MATRIZ_PARIDADE_FUNCIONAL.md) | Funcionalidade → requisito → módulo → teste → status |
-| [docs/linguagem/](docs/linguagem/README.md) | Especificação da linguagem (estrutura léxica e expressões) |
+| [docs/linguagem/](docs/linguagem/README.md) | Especificação da linguagem (léxico, expressões, instruções, valores e console) |
 | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Arquitetura |
 | [docs/DECISOES_TECNICAS.md](docs/DECISOES_TECNICAS.md) | Decisões técnicas (DT-xx) |
 | [docs/PLANO_DE_DESENVOLVIMENTO.md](docs/PLANO_DE_DESENVOLVIMENTO.md) | Fases e portões |

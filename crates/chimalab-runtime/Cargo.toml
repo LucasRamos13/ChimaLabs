@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 chimalab-array = { path = "../chimalab-array" }
+chimalab-lang = { path = "../chimalab-lang" }
 chimalab-math = { path = "../chimalab-math" }
 num-complex = "0.4"
 

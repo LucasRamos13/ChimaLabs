@@ -153,3 +153,55 @@ O léxico (DT-36) já está pronto e não depende destas respostas; o parser e o
   - B: bytecode e máquina virtual desde o início (DT-03), com o console só depois;
   - P.
   - *Recomendação: A.* Entrega o console (CAs do F001) cedo e define a semântica por testes; o bytecode passa a ser uma otimização verificada contra o avaliador da árvore, que vira oráculo.
+
+## Perguntas 49–51 (decididas em 2026-11-26: 49.A, 50.A, 51.A): semântica do avaliador (DT-40)
+As recomendações já estão implementadas e testadas; trocar é barato enquanto não há código de usuário.
+- **49. Condição de `if`/`while` com array:**
+  - A: vazio é falso (cumpre o critério "if [] é falso" do F006); escalar vale pelo valor; array com dois ou mais elementos é erro, com a sugestão `all(…)`/`any(…)`;
+  - B: verdadeiro se não vazio e todos os elementos não nulos (comportamento tradicional dos ambientes de matriz);
+  - P.
+  - *Recomendação: A* (implementada). `if A == B` com matrizes é uma fonte comum de erro silencioso; o erro explícito ensina a forma certa. Uma versão anterior desta recomendação tornava `if []` erro também, o que mudaria um critério de aceitação do catálogo; por isso o vazio ficou falso.
+- **50. Variáveis livres em funções anônimas:**
+  - A: capturam o valor na criação;
+  - B: leem o valor atual na chamada (como no Python);
+  - P.
+  - *Recomendação: A.* Uma função anônima passada a um integrador ou otimizador não muda se a variável mudar depois.
+- **51. Escopo das funções `def`:**
+  - A: isolado (só parâmetros e o que a função cria);
+  - B: leitura das variáveis do workspace/módulo, como no Python;
+  - P.
+  - *Recomendação: A.* Funções reproduzíveis, sem dependência escondida do estado do console; constantes globais entram depois por módulos.
+
+## Perguntas 52–53 (decididas em 2026-11-26: 52.A, 53.A)
+- **52. Ctrl+C no console:** o mecanismo de interrupção existe e está testado (`Interpretador::sinal_de_interrupcao`); falta o tratador do sinal no executável, que exige uma dependência (Rust sem `unsafe` não instala tratador de sinal só com a biblioteca padrão).
+  - A: adicionar o crate `ctrlc` (MIT/Apache-2.0), cumprindo o §6 do CLAUDE.md (licenças das transitivas, `cargo deny`, LICENCAS Parte B);
+  - B: esperar a IDE (Tauri), que interrompe pelo próprio canal;
+  - P.
+  - *Recomendação: A.* O console de linha de comando é o caminho de teste do F001 e o CA4 pede Ctrl+C.
+- **53. Nomes das funções de EDO na linguagem (F049):** as rotinas existem no `chimalab-math`, mas falta a interface.
+  - A: uma função só, `ode(f, [t0, tf], y0; method="dopri5", rel_tol=…, abs_tol=…)`, devolvendo `t, y` (implementada provisoriamente assim);
+  - B: uma função por método, com nomes próprios (`rk45`, `rk23`, `bdf`, `rosenbrock`…);
+  - P.
+  - *Recomendação: A.* Um nome só e o método como opção é mais fácil de ensinar e de trocar; o padrão pode escolher entre explícito e implícito pela rigidez detectada.
+
+## Perguntas 54–56 (decididas em 2026-11-26: 54.A, 55.P, 56.A): texto e estruturas
+- **54. Texto (F010):** hoje `'abc'` e `"abc"` são vetores de caracteres (DT-34), e `"a" + "b"` soma os códigos (195). O catálogo pede `"a" + "b" == "ab"`.
+  - A: `+` entre dois textos concatena; texto com número é erro (`chimalab:runtime:classesIncompativeis`, com a sugestão de `double(…)` para a conta com códigos); funções `upper`, `lower`, `strip`, `replace`, `startswith`, `endswith`, `contains`, `split`/`join` (com F009) e `str2double` (texto inválido dá NaN);
+  - B: manter a aritmética de códigos e concatenar só com `[a b]`;
+  - P.
+  - *Recomendação: A.* É o que o critério do F010 e a ergonomia do Python pedem; a conta com códigos continua possível explicitamente.
+- **55. Estruturas, células e dicionários (F009, F025):** nenhuma sintaxe foi fixada.
+  - A: estruturas com campos `s.a = 1` e literal `struct(a=1, b="x")`; células com `{1, "a", [1 2]}` e índice `c{2}`; dicionários com `dict("a" => 1)`;
+  - B: estruturas e dicionários pelo mesmo literal do Python `{"a": 1}`, sem células (listas `[[…]]` heterogêneas);
+  - P.
+  - *Recomendação: P.* A escolha afeta F009, F024 (tabelas) e F025 de uma vez; vale pesquisar a ergonomia antes de fixar.
+- **56. Unidade de indexação de texto (DT-06 × implementação):** o DT-06 manda indexar texto por unidades UTF-16, mas o modelo de valores implementado desde o início guarda um escalar Unicode por elemento (`'olá'` tem 3 elementos, e um emoji é 1 elemento, não 2).
+  - A: oficializar o escalar Unicode (atualizar o DT-06): o comprimento é o número de caracteres que a pessoa vê na maioria dos casos, sem pares substitutos;
+  - B: mudar a implementação para UTF-16, como o DT-06 diz (compatibilidade de índices com Java/.NET);
+  - P.
+  - *Recomendação: A.* É o comportamento atual, coberto por testes, e evita metade de um emoji como "caractere"; a interoperabilidade com UTF-16 fica nas funções de conversão.
+
+**Respostas de 2026-11-26 (responsável: "pode usar suas recomendações"):** 49.A, 50.A, 51.A, 52.A, 53.A, 54.A, 55.P, 56.A.
+- Já implementadas: 49, 50, 51 e 53.
+- A fazer: 52 (adicionar `ctrlc` seguindo o §6 do CLAUDE.md e ligar ao `sinal_de_interrupcao`); 54 (`+` entre textos concatena, texto com número é erro, funções de texto); 55 (pesquisar a ergonomia de estruturas, células e dicionários e decidir, registrando em DT); 56 (atualizar o DT-06 para o escalar Unicode).
+

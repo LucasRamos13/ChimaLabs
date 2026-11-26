@@ -12,6 +12,12 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+chimalab-lang = { path = "../chimalab-lang" }
+chimalab-runtime = { path = "../chimalab-runtime" }
+
+[lib]
+name = "chimalab_cli"
+path = "src/lib.rs"
 
 [[bin]]
 name = "chimalab"

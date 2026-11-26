@@ -11,6 +11,13 @@
 
 use std::fmt;
 
+/// Palavras reservadas (DT-39). O léxico as emite como identificadores, mas uma palavra
+/// reservada não termina um valor: `in 'abc'` abre um texto. `end` não é reservada.
+pub const KEYWORDS: &[&str] = &[
+    "and", "break", "case", "continue", "def", "elif", "else", "except", "for", "if", "in", "match", "not",
+    "or", "pass", "return", "try", "while",
+];
+
 /// Operadores e pontuação.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
@@ -96,6 +103,8 @@ pub enum Op {
     StarAssign,
     /// `/=`
     SlashAssign,
+    /// `->` (função anônima, DT-39)
+    Arrow,
 }
 
 impl Op {
@@ -143,6 +152,7 @@ impl Op {
             Op::MinusAssign => "-=",
             Op::StarAssign => "*=",
             Op::SlashAssign => "/=",
+            Op::Arrow => "->",
         }
     }
 }
@@ -396,11 +406,13 @@ impl<'s> Lexer<'s> {
 
     /// O último token termina um valor (para decidir se `'` é transposta).
     fn prev_is_value(&self) -> bool {
+        if let Some(Tok::Ident(w)) = self.out.last().map(|t| &t.tok) {
+            return !KEYWORDS.contains(&w.as_str());
+        }
         matches!(
             self.out.last().map(|t| &t.tok),
             Some(
-                Tok::Ident(_)
-                    | Tok::Number { .. }
+                Tok::Number { .. }
                     | Tok::Imag { .. }
                     | Tok::Str(_)
                     | Tok::FStr(_)
@@ -830,6 +842,7 @@ impl<'s> Lexer<'s> {
             ('-', Some('=')) => Some(Op::MinusAssign),
             ('*', Some('=')) => Some(Op::StarAssign),
             ('/', Some('=')) => Some(Op::SlashAssign),
+            ('-', Some('>')) => Some(Op::Arrow),
             _ => None,
         };
         if let Some(op) = dois {

@@ -26,7 +26,7 @@
 
 Princípios:
 1. O **kernel fica separado da UI**. Travar o código do usuário nunca trava a interface (RNF-05). Isso também habilita uso headless, remoto e no navegador (F100, F104).
-2. Há uma **especificação de linguagem própria** em `docs/linguagem/` (estrutura léxica e expressões já escritas). A semântica é definida por testes de conformidade escritos pelo projeto.
+2. Há uma **especificação de linguagem própria** em `docs/linguagem/` (guia rápido, léxico, expressões, instruções, valores, console e funções embutidas, todos com testes de conformidade que leem o próprio documento). A semântica é definida por testes de conformidade escritos pelo projeto.
 3. **Bibliotecas puras e testáveis**: `chimalab-math` e `chimalab-data` não dependem do runtime.
 4. **Formatos abertos e versionados** (RNF-12).
 5. **Extensibilidade** por pacotes (F165/F166) e por uma API nativa estável (F140).

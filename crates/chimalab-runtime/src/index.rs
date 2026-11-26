@@ -30,17 +30,21 @@ pub enum Index {
 impl Value {
     /// Valor de `end` no subscrito `k` (0-based) de `n` subscritos.
     pub fn end_index(&self, k: usize, n: usize) -> usize {
-        let d = self.dims();
-        if n == 1 {
-            self.numel()
-        } else if k + 1 < n {
-            d.get(k).copied().unwrap_or(1)
-        } else {
-            d[k.min(d.len())..]
-                .iter()
-                .product::<usize>()
-                .max(if k >= d.len() { 1 } else { 0 })
-        }
+        end_index(self.dims(), k, n)
+    }
+}
+
+/// Valor de `end` no subscrito `k` (0-based) de `n` subscritos de um array com forma `d`.
+pub fn end_index(d: &[usize], k: usize, n: usize) -> usize {
+    if n == 1 {
+        d.iter().product()
+    } else if k + 1 < n {
+        d.get(k).copied().unwrap_or(1)
+    } else {
+        d[k.min(d.len())..]
+            .iter()
+            .product::<usize>()
+            .max(if k >= d.len() { 1 } else { 0 })
     }
 }
 
@@ -358,6 +362,9 @@ pub fn subsdelete(v: &mut Value, idx: &[Index]) -> Result<(), RuntimeError> {
 
 /// Atribuição indexada `A(idx…) = rhs`, com crescimento.
 ///
+/// Em caso de erro o alvo fica intacto: as promoções de classe acontecem numa cópia, e a
+/// atribuição sem promoção valida tudo antes de escrever.
+///
 /// Erros: `dimensoesIncompativeis` (número de elementos), `indiceInvalido`, `conversaoInvalida`.
 pub fn subsasgn(v: &mut Value, idx: &[Index], rhs: &Value) -> Result<(), RuntimeError> {
     if idx.is_empty() {
@@ -366,13 +373,28 @@ pub fn subsasgn(v: &mut Value, idx: &[Index], rhs: &Value) -> Result<(), Runtime
     }
     // Classe do resultado: a do alvo (vazio adota a do lado direito; complexo promove double).
     let alvo = if v.numel() == 0 { rhs.class() } else { v.class() };
-    if v.numel() == 0 && v.class() != alvo {
-        *v = v.cast(alvo)?;
+    let promove_vazio = v.numel() == 0 && v.class() != alvo;
+    let promove_complexo = rhs.is_complex() && matches!(v, Value::Double(_));
+    if promove_vazio || promove_complexo {
+        let mut w = if promove_vazio { v.cast(alvo)? } else { v.clone() };
+        if rhs.is_complex() && matches!(w, Value::Double(_)) {
+            let z: Vec<Complex64> = w.to_complex();
+            w = Value::Complex(NdArray::from_shape_vec(w.dims(), z).expect("forma"));
+        }
+        atribui_mesma_classe(&mut w, idx, rhs, alvo)?;
+        *v = w;
+        return Ok(());
     }
-    if rhs.is_complex() && matches!(v, Value::Double(_)) {
-        let z: Vec<Complex64> = v.to_complex();
-        *v = Value::Complex(NdArray::from_shape_vec(v.dims(), z).expect("forma"));
-    }
+    atribui_mesma_classe(v, idx, rhs, alvo)
+}
+
+/// Atribuição com o alvo já na classe final.
+fn atribui_mesma_classe(
+    v: &mut Value,
+    idx: &[Index],
+    rhs: &Value,
+    alvo: crate::Class,
+) -> Result<(), RuntimeError> {
     let r = if v.is_complex() {
         Value::Complex(NdArray::from_shape_vec(rhs.dims(), rhs.to_complex()).expect("forma"))
     } else {

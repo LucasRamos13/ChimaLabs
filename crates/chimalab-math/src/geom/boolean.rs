@@ -311,24 +311,19 @@ fn assemble(edges: Vec<([f64; 2], [f64; 2])>) -> Vec<Vec<[f64; 2]>> {
         usado[inicio] = true;
         let mut atual = inicio;
         loop {
-            let (p, q) = edges[atual];
+            let q = edges[atual].1;
             if q == anel[0] {
                 break;
             }
             anel.push(q);
-            let cands: Vec<usize> = saidas
+            // Qualquer aresta de saída serve: num vértice com várias, o anel pode passar mais de
+            // uma vez por ele, e `separa_toques` o quebra nos mesmos laços simples. (A regra da
+            // curva mais à direita, usada antes, deixou de influir no resultado depois dessa
+            // quebra; a mutação mostrou isso e ela saiu.)
+            let Some(prox) = saidas
                 .get(&bits(q))
-                .map_or(Vec::new(), |v| v.iter().copied().filter(|&k| !usado[k]).collect());
-            let Some(prox) = cands.into_iter().min_by(|&x, &y| {
-                // Ângulo de giro em (−π, π]: o menor é a curva mais à direita.
-                let giro = |k: usize| {
-                    let r = edges[k].1;
-                    let (ux, uy) = (q[0] - p[0], q[1] - p[1]);
-                    let (vx, vy) = (r[0] - q[0], r[1] - q[1]);
-                    (ux * vy - uy * vx).atan2(ux * vx + uy * vy)
-                };
-                giro(x).total_cmp(&giro(y))
-            }) else {
+                .and_then(|v| v.iter().copied().find(|&k| !usado[k]))
+            else {
                 break;
             };
             usado[prox] = true;
@@ -367,4 +362,56 @@ fn separa_toques(anel: Vec<[f64; 2]>) -> Vec<Vec<[f64; 2]>> {
     }
     lacos.push(pilha);
     lacos
+}
+
+#[cfg(test)]
+mod testes_cruzamentos {
+    use super::{crossings, split};
+
+    /// Cortes repetidos no mesmo ponto (duas arestas que tocam a mesma aresta num vértice) não
+    /// criam pedaço de comprimento zero; cortes nas pontas não cortam.
+    #[test]
+    fn corte_repetido_nao_cria_aresta_nula() {
+        let e = [([0.0, 0.0], [4.0, 0.0])];
+        let p = split(&e, &[vec![(0.5, [2.0, 0.0]), (0.5, [2.0, 0.0])]]);
+        assert_eq!(p, [([0.0, 0.0], [2.0, 0.0]), ([2.0, 0.0], [4.0, 0.0])]);
+        let p = split(
+            &e,
+            &[vec![(0.0, [0.0, 0.0]), (1.0, [4.0, 0.0]), (0.25, [1.0, 0.0])]],
+        );
+        assert_eq!(p, [([0.0, 0.0], [1.0, 0.0]), ([1.0, 0.0], [4.0, 0.0])]);
+        assert!(p.iter().all(|(a, b)| a != b));
+    }
+
+    /// Toque numa ponta (mutação): com uma ponta exatamente sobre a reta do outro segmento
+    /// (orientação 0) e a outra de qualquer lado, o contato existe e usa a ponta exata. Um teste
+    /// de sinal por quociente (o1/o2) daria ±∞ e perderia o contato.
+    #[test]
+    fn toque_em_ponta_com_orientacao_nula() {
+        let (p, q) = ([0.0, 0.0], [4.0, 0.0]);
+        // r acima (o1 > 0), s sobre p→q (o2 = 0); e o contrário; e com r abaixo.
+        for (r, s, toque) in [
+            ([1.0, 1.0], [2.0, 0.0], [2.0, 0.0]),
+            ([2.0, 0.0], [1.0, 1.0], [2.0, 0.0]),
+            ([1.0, -1.0], [3.0, 0.0], [3.0, 0.0]),
+            ([3.0, 0.0], [1.0, -1.0], [3.0, 0.0]),
+        ] {
+            let c = crossings(p, q, r, s);
+            assert_eq!(c.len(), 1, "{r:?} {s:?}: {c:?}");
+            assert_eq!(c[0].0, toque);
+        }
+        // Ponta de p→q sobre r→s (o3 ou o4 nulos), nas duas ordens e nos dois sentidos.
+        for (p2, q2, r2, s2) in [
+            ([2.0, 0.0], [2.0, 5.0], [0.0, 0.0], [4.0, 0.0]),
+            ([2.0, 5.0], [2.0, 0.0], [0.0, 0.0], [4.0, 0.0]),
+            ([2.0, 5.0], [2.0, 0.0], [4.0, 0.0], [0.0, 0.0]),
+            ([2.0, -5.0], [2.0, 0.0], [0.0, 0.0], [4.0, 0.0]),
+        ] {
+            let c = crossings(p2, q2, r2, s2);
+            assert_eq!(c.len(), 1, "{p2:?} {q2:?}: {c:?}");
+            assert_eq!(c[0].0, [2.0, 0.0]);
+        }
+        // Sem toque: os dois do mesmo lado.
+        assert!(crossings(p, q, [1.0, 1.0], [2.0, 2.0]).is_empty());
+    }
 }

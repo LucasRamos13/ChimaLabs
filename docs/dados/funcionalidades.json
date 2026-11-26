@@ -168,7 +168,7 @@
    "restricoes_tecnicas": "",
    "estrategia": "Cache de AST por arquivo com invalidação por mtime/hash; tabela de resolução por escopo.",
    "servico_externo": false,
-   "status_forcado": null,
+   "status_forcado": "EM DESENVOLVIMENTO",
    "confianca_forcada": null,
    "fase": null
   },
@@ -285,7 +285,7 @@
    "restricoes_tecnicas": "",
    "estrategia": "",
    "servico_externo": false,
-   "status_forcado": null,
+   "status_forcado": "EM DESENVOLVIMENTO",
    "confianca_forcada": null,
    "fase": null
   },
@@ -491,7 +491,7 @@
    "restricoes_tecnicas": "",
    "estrategia": "",
    "servico_externo": false,
-   "status_forcado": null,
+   "status_forcado": "EM DESENVOLVIMENTO",
    "confianca_forcada": null,
    "fase": null
   },
@@ -576,7 +576,7 @@
    "restricoes_tecnicas": "",
    "estrategia": "",
    "servico_externo": false,
-   "status_forcado": null,
+   "status_forcado": "EM DESENVOLVIMENTO",
    "confianca_forcada": null,
    "fase": null
   },
@@ -689,7 +689,7 @@
    "restricoes_tecnicas": "",
    "estrategia": "",
    "servico_externo": false,
-   "status_forcado": null,
+   "status_forcado": "EM DESENVOLVIMENTO",
    "confianca_forcada": null,
    "fase": null
   },

@@ -152,6 +152,10 @@ dependencies = [
 [[package]]
 name = "chimalab-cli"
 version = "0.0.0"
+dependencies = [
+ "chimalab-lang",
+ "chimalab-runtime",
+]
 
 [[package]]
 name = "chimalab-data"
@@ -224,6 +228,7 @@ name = "chimalab-runtime"
 version = "0.0.0"
 dependencies = [
  "chimalab-array",
+ "chimalab-lang",
  "chimalab-math",
  "num-complex",
  "proptest",

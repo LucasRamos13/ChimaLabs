@@ -41,7 +41,7 @@ O sistema deve oferecer: Avaliação interativa de expressões e comandos com ex
   - CA3: Bloco multilinha só executa após 'end'
   - CA4: Ctrl+C interrompe laço infinito em <1s sem perder o workspace
 
-### RF-002 — Scripts e funções em arquivo (origem: F002, status PLANEJADA)
+### RF-002 — Scripts e funções em arquivo (origem: F002, status EM DESENVOLVIMENTO)
 
 O sistema deve oferecer: Arquivos de código-fonte contendo scripts ou funções (principal, locais, aninhadas, privadas).
 
@@ -103,7 +103,7 @@ O sistema deve oferecer: Operadores aritméticos, relacionais, lógicos (com cur
   - CA2: A\b resolve sistema com resíduo < 1e-12 em matriz bem condicionada
   - CA3: Aviso emitido para matriz singular
 
-### RF-006 — Controle de fluxo (origem: F006, status PLANEJADA)
+### RF-006 — Controle de fluxo (origem: F006, status EM DESENVOLVIMENTO)
 
 O sistema deve oferecer: if/elseif/else, switch/case (inclusive cell de casos e strings), for (sobre colunas), while, break, continue, return, try/catch.
 
@@ -210,7 +210,7 @@ O sistema deve oferecer: Lançamento e captura de exceções com identificadores
   - CA2: MException tem stack com arquivo/linha
   - CA3: onCleanup executa ao sair do escopo mesmo em erro
 
-### RF-013 — Workspaces, escopo e avaliação dinâmica (origem: F013, status PLANEJADA)
+### RF-013 — Workspaces, escopo e avaliação dinâmica (origem: F013, status EM DESENVOLVIMENTO)
 
 O sistema deve oferecer: Workspace base e de função, variáveis globais e persistentes, eval/evalin/assignin/feval, exist/which/clear/who/whos, inputname.
 
@@ -254,7 +254,7 @@ O sistema deve oferecer: Agrupamento de código em módulos com descritor, visib
   - CA1: Função interna do módulo inacessível de fora
   - CA2: Descritor inválido gera erro claro
 
-### RF-016 — Funções anônimas, handles e funções de ordem superior (origem: F016, status PLANEJADA)
+### RF-016 — Funções anônimas, handles e funções de ordem superior (origem: F016, status EM DESENVOLVIMENTO)
 
 O sistema deve oferecer: Handles de função, funções anônimas com captura de valores, cellfun/arrayfun/structfun/func2str/str2func.
 
@@ -310,7 +310,7 @@ O sistema deve oferecer: Execução acelerada de código interpretado (compilaç
   - CA1: Laço escalar de 1e7 iterações < 5x de C equivalente (meta)
   - CA2: Resultados idênticos entre JIT e interpretador em toda a suíte
 
-### RF-020 — Operações de conjuntos, ordenação, busca e bits (origem: F020, status PLANEJADA)
+### RF-020 — Operações de conjuntos, ordenação, busca e bits (origem: F020, status EM DESENVOLVIMENTO)
 
 O sistema deve oferecer: sort/sortrows/unique/union/intersect/setdiff/ismember/find/any/all/cumsum/bitand/bitor/bitshift etc.
 

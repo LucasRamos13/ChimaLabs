@@ -81,7 +81,7 @@ fn identificadores_e_operadores() {
         sem_fim(toks("x_1 = α + β2")),
         vec![id("x_1"), op(Op::Assign), id("α"), op(Op::Plus), id("β2")]
     );
-    let todos = "+ - * / \\ ^ .* ./ .\\ .^ = == != ~= < <= > >= : , ; . @ & && | || ! ~ += -= *= /=";
+    let todos = "+ - * / \\ ^ .* ./ .\\ .^ = == != ~= < <= > >= : , ; . @ & && | || ! ~ += -= *= /= ->";
     let esperado = [
         Op::Plus,
         Op::Minus,
@@ -116,6 +116,7 @@ fn identificadores_e_operadores() {
         Op::MinusAssign,
         Op::StarAssign,
         Op::SlashAssign,
+        Op::Arrow,
     ];
     let t = sem_fim(toks(todos));
     assert_eq!(t, esperado.iter().map(|&o| op(o)).collect::<Vec<_>>());
@@ -127,6 +128,16 @@ fn identificadores_e_operadores() {
     assert_eq!(erro("x $ y").3, "chimalab:lexico:caractereInvalido");
     // Acesso a membro e transpostas por nome.
     assert_eq!(sem_fim(toks("A.T")), vec![id("A"), op(Op::Dot), id("T")]);
+    // `->` colado (DT-39); com espaço no meio são dois operadores.
+    assert_eq!(sem_fim(toks("x->1")), vec![id("x"), op(Op::Arrow), num(1.0)]);
+    assert_eq!(
+        sem_fim(toks("x - > 1")),
+        vec![id("x"), op(Op::Minus), op(Op::Gt), num(1.0)]
+    );
+    assert_eq!(
+        sem_fim(toks("x-=1")),
+        vec![id("x"), op(Op::MinusAssign), num(1.0)]
+    );
 }
 
 #[test]
@@ -489,5 +500,22 @@ proptest! {
             esperado.push(tok);
         }
         prop_assert_eq!(sem_fim(toks(&src)), esperado);
+    }
+}
+
+/// Regressão: depois de palavra reservada, `'` abre texto (antes virava transposta e
+/// `for c in 'abc':` falhava).
+#[test]
+fn aspa_depois_de_palavra_reservada() {
+    use chimalab_lang::lexico::KEYWORDS;
+    for w in KEYWORDS {
+        let t = sem_fim(toks(&format!("{w} 'x'")));
+        assert_eq!(t, vec![id(w), Tok::Str("x".into())], "{w}");
+        let t = sem_fim(toks(&format!("{w}'x'")));
+        assert_eq!(t, vec![id(w), Tok::Str("x".into())], "{w} colado");
+    }
+    // Nomes comuns (inclusive `end` e prefixos de palavras) continuam transpondo.
+    for w in ["end", "x", "iff", "in_", "case2"] {
+        assert_eq!(sem_fim(toks(&format!("{w}'"))), vec![id(w), op(Op::Quote)], "{w}");
     }
 }

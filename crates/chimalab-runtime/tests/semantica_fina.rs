@@ -832,3 +832,53 @@ fn pontos_igualmente_espacados() {
     assert_eq!(w, vec![-f64::MAX, 0.0, f64::MAX]);
     assert!(f(&linspace(-f64::MAX, f64::MAX, 5)).iter().all(|x| x.is_finite()));
 }
+
+/// Regressão: um erro depois da promoção de classe deixava o alvo alterado (double virava
+/// complexo; vazio trocava de classe). Agora o alvo fica intacto.
+#[test]
+fn atribuicao_com_erro_preserva_o_alvo() {
+    let mut v = Value::doubles(&[1, 2], vec![1.0, 2.0]);
+    let z3 = Value::Complex(NdArray::from_shape_vec(&[1, 3], vec![Complex64::new(1.0, 1.0); 3]).unwrap());
+    let e = subsasgn(&mut v, &[Index::List(vec![1, 2])], &z3).unwrap_err();
+    assert_eq!(e.id(), "chimalab:runtime:dimensoesIncompativeis");
+    assert_eq!(v, Value::doubles(&[1, 2], vec![1.0, 2.0]));
+    let mut vazio = Value::doubles(&[0, 0], Vec::new());
+    let i3 = Value::Int(chimalab_runtime::IntData::from_i128(
+        chimalab_runtime::IntClass::I8,
+        &[1, 3],
+        vec![1, 2, 3],
+    ));
+    assert!(subsasgn(&mut vazio, &[Index::List(vec![1, 2])], &i3).is_err());
+    assert_eq!(vazio, Value::doubles(&[0, 0], Vec::new()));
+    // Erro sem promoção (índice zero, crescimento proibido) também não toca o alvo.
+    let mut m = Value::doubles(&[2, 2], vec![1.0, 2.0, 3.0, 4.0]);
+    assert!(subsasgn(&mut m, &[Index::Scalar(0)], &Value::scalar(9.0)).is_err());
+    assert!(subsasgn(&mut m, &[Index::Scalar(9)], &Value::scalar(9.0)).is_err());
+    assert_eq!(m, Value::doubles(&[2, 2], vec![1.0, 2.0, 3.0, 4.0]));
+    // Com sucesso, as promoções acontecem.
+    let mut v = Value::doubles(&[1, 2], vec![1.0, 2.0]);
+    subsasgn(&mut v, &[Index::Scalar(2)], &z3_um()).unwrap();
+    assert!(v.is_complex());
+    let mut vazio = Value::doubles(&[0, 0], Vec::new());
+    subsasgn(
+        &mut vazio,
+        &[Index::Scalar(2)],
+        &Value::Logical(NdArray::filled_nd(&[1, 1], true)),
+    )
+    .unwrap();
+    assert_eq!(vazio.class().name(), "logical");
+    // `end_index` livre bate com o método.
+    for (dims, k, n) in [
+        (vec![2, 3, 4], 0, 1),
+        (vec![2, 3, 4], 1, 2),
+        (vec![2, 3], 2, 3),
+        (vec![0, 3], 0, 2),
+    ] {
+        let a = Value::doubles(&dims, vec![0.0; dims.iter().product()]);
+        assert_eq!(a.end_index(k, n), chimalab_runtime::end_index(&dims, k, n));
+    }
+}
+
+fn z3_um() -> Value {
+    Value::Complex(NdArray::from_shape_vec(&[1, 1], vec![Complex64::new(0.0, 1.0)]).unwrap())
+}
