@@ -8,7 +8,7 @@ edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.100"
 publish = false
-repository = "https://example.invalid/chimalab" # definir quando houver repositório remoto
+repository = "https://github.com/LucasRamos13/ChimaLabs"
 
 [workspace.lints.rust]
 unsafe_code = "deny"            # exceções por crate devem ser justificadas em DECISOES_TECNICAS.md
